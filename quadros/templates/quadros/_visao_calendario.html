@@ -19,8 +19,8 @@
         <td class="{% if not dia.do_mes %}fora-do-mes{% endif %}{% if dia.hoje %} hoje{% endif %}">
           <span class="numero-dia">{{ dia.dia.day }}</span>
           {% for item in dia.itens %}
-          <span class="pilula {% with cor=item|cor_item:coluna_status %}{% if cor %}cor-{{ cor }}{% else %}cor-sem{% endif %}{% endwith %}"
-                title="{{ item.nome }}{% if coluna_status %} · {{ item|valor_de:coluna_status|default:'Sem status' }}{% endif %}">{{ item.nome }}</span>
+          <a href="{% url 'quadros:item_detalhe' item.pk %}" class="pilula {% with cor=item|cor_item:coluna_status %}{% if cor %}cor-{{ cor }}{% else %}cor-sem{% endif %}{% endwith %}"
+                title="{{ item.nome }}{% if coluna_status %} · {{ item|valor_de:coluna_status|default:'Sem status' }}{% endif %}">{{ item.nome }}</a>
           {% endfor %}
         </td>
         {% endfor %}

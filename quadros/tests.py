@@ -1,5 +1,12 @@
+import tempfile
+from datetime import date, timedelta
+from io import StringIO
+
+from django.core import mail
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from organizacao.models import Empresa, Filial, Usuario
@@ -167,3 +174,117 @@ class VisualizacoesTests(TestCase):
     def test_visao_desconhecida_mostra_tabela(self):
         resposta = self.client.get(self.url, {"visao": "xyz"})
         self.assertEqual(resposta.context["visao"], "tabela")
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class ColaboracaoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        alfa = Empresa.objects.create(nome="Alfa")
+        cls.matriz = Filial.objects.create(empresa=alfa, nome="Matriz")
+        filial2 = Filial.objects.create(empresa=alfa, nome="Filial 2")
+        cls.ana = Usuario.objects.create_user(
+            "ana", password="x", email="ana@x.com", papel=P.COLABORADOR, empresa=alfa, filial=cls.matriz
+        )
+        cls.bia = Usuario.objects.create_user(
+            "bia", password="x", email="bia@x.com", papel=P.COLABORADOR, empresa=alfa, filial=cls.matriz
+        )
+        cls.outro = Usuario.objects.create_user(
+            "outro", password="x", papel=P.COLABORADOR, empresa=alfa, filial=filial2
+        )
+        cls.quadro = Quadro.criar_padrao(nome="Manutenção", filial=cls.matriz)
+        cls.responsavel = cls.quadro.colunas.get(nome="Responsável")
+        cls.status = cls.quadro.colunas.get(nome="Status")
+        cls.prazo = cls.quadro.colunas.get(nome="Prazo")
+        cls.item = cls.quadro.grupos.first().itens.create(nome="Revisar extintores")
+
+    def setUp(self):
+        self.client.login(username="ana", password="x")
+
+    def url(self, nome, *args):
+        return reverse(f"quadros:{nome}", args=args or [self.item.pk])
+
+    def test_atribuir_responsavel_notifica_e_registra(self):
+        self.client.post(
+            self.url("item_valor", self.item.pk, self.responsavel.pk), {"valor": self.bia.pk}
+        )
+        self.assertEqual(self.bia.notificacoes.count(), 1)
+        self.assertIn("atribuiu a você", self.bia.notificacoes.get().texto)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["bia@x.com"])
+        self.assertIn("mudou Responsável de vazio para bia", self.item.atividades.get().descricao)
+
+    def test_nao_notifica_a_si_mesmo(self):
+        self.client.post(
+            self.url("item_valor", self.item.pk, self.responsavel.pk), {"valor": self.ana.pk}
+        )
+        self.assertEqual(self.ana.notificacoes.count(), 0)
+
+    def test_mencao_notifica_so_quem_ve_o_quadro(self):
+        self.client.post(self.url("comentario_criar"), {"texto": "Olha isso @bia e @outro"})
+        self.assertEqual(self.item.comentarios.count(), 1)
+        self.assertEqual(self.bia.notificacoes.count(), 1)
+        self.assertIn("mencionou você", self.bia.notificacoes.get().texto)
+        self.assertEqual(self.outro.notificacoes.count(), 0)
+
+    def test_comentario_avisa_responsavel(self):
+        self.item.definir_valor(self.responsavel, str(self.bia.pk))
+        self.client.post(self.url("comentario_criar"), {"texto": "Já comprei as peças"})
+        self.assertIn("comentou", self.bia.notificacoes.get().texto)
+
+    def test_so_o_autor_exclui_comentario(self):
+        comentario = self.item.comentarios.create(autor=self.bia, texto="oi")
+        resposta = self.client.post(self.url("comentario_excluir", comentario.pk))
+        self.assertEqual(resposta.status_code, 404)
+        self.assertTrue(self.item.comentarios.exists())
+
+    def test_anexo_envia_baixa_e_bloqueia_outra_filial(self):
+        arquivo = SimpleUploadedFile("nota.pdf", b"conteudo", content_type="application/pdf")
+        self.client.post(self.url("anexo_enviar"), {"arquivo": arquivo})
+        anexo = self.item.anexos.get()
+        resposta = self.client.get(self.url("anexo_baixar", anexo.pk))
+        self.assertEqual(b"".join(resposta.streaming_content), b"conteudo")
+        self.client.login(username="outro", password="x")
+        self.assertEqual(self.client.get(self.url("anexo_baixar", anexo.pk)).status_code, 404)
+
+    @override_settings(TAMANHO_MAXIMO_ANEXO=5)
+    def test_anexo_grande_e_recusado(self):
+        arquivo = SimpleUploadedFile("grande.txt", b"123456789")
+        self.client.post(self.url("anexo_enviar"), {"arquivo": arquivo})
+        self.assertFalse(self.item.anexos.exists())
+
+    def test_subtarefas(self):
+        self.client.post(self.url("subtarefa_criar"), {"nome": "Comprar carga"})
+        subtarefa = self.item.subtarefas.get()
+        self.client.post(self.url("subtarefa_alternar", subtarefa.pk))
+        subtarefa.refresh_from_db()
+        self.assertTrue(subtarefa.feita)
+
+    def test_pagina_do_item(self):
+        self.item.comentarios.create(autor=self.bia, texto="Primeiro comentário")
+        resposta = self.client.get(self.url("item_detalhe"))
+        self.assertContains(resposta, "Primeiro comentário")
+        self.client.login(username="outro", password="x")
+        self.assertEqual(self.client.get(self.url("item_detalhe")).status_code, 404)
+
+    def test_avisar_prazos(self):
+        amanha = (date.today() + timedelta(days=1)).isoformat()
+        self.item.definir_valor(self.responsavel, str(self.bia.pk))
+        self.item.definir_valor(self.prazo, amanha)
+        feito = self.quadro.grupos.first().itens.create(nome="Já feito")
+        feito.definir_valor(self.responsavel, str(self.bia.pk))
+        feito.definir_valor(self.prazo, amanha)
+        feito.definir_valor(self.status, "Feito")
+        call_command("avisar_prazos", stdout=StringIO())
+        textos = list(self.bia.notificacoes.values_list("texto", flat=True))
+        self.assertEqual(len(textos), 1)
+        self.assertIn("vence amanhã", textos[0])
+
+    def test_notificacao_abre_o_link_e_fica_lida(self):
+        self.client.post(self.url("comentario_criar"), {"texto": "@bia veja"})
+        notificacao = self.bia.notificacoes.get()
+        self.client.login(username="bia", password="x")
+        resposta = self.client.get(reverse("notificacoes:abrir", args=[notificacao.pk]))
+        self.assertRedirects(resposta, self.url("item_detalhe"))
+        notificacao.refresh_from_db()
+        self.assertTrue(notificacao.lida)

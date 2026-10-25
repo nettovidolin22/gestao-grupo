@@ -26,6 +26,17 @@ Sistema de gestão de tarefas e projetos para o grupo (empresas, filiais e equip
 - Kanban: cartões agrupados por uma coluna de Status (escolha qual em "Agrupar por"). Arraste um cartão para outra coluna, ou use o seletor no cartão pelo celular, e o status muda na hora
 - Calendário: itens posicionados no mês pela coluna de Data, coloridos pelo status, com navegação entre meses e lista dos itens sem data
 
+## Módulo 4: colaboração
+
+- Página de cada item (botão ↗ na tabela, ou clique no cartão do Kanban ou no calendário) com os campos, subtarefas, comentários, anexos e histórico
+- Comentários com menção: escreva `@usuario` para avisar alguém que vê o quadro
+- Anexos de até 10 MB, baixados só por quem tem acesso ao item
+- Histórico automático: quem criou, renomeou, mudou um campo, comentou ou anexou, e quando
+- Notificações no sistema (menu **Notificações**) e por e-mail quando alguém é atribuído, mencionado ou recebe comentário num item seu
+- Aviso de prazo: `python manage.py avisar_prazos` avisa quem tem item vencendo amanhã ou que venceu ontem (itens com status Feito ficam de fora). Em produção ele roda uma vez por dia, agendado
+
+Sem `EMAIL_HOST` no `.env`, os e-mails aparecem no terminal em vez de serem enviados.
+
 Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como chave. A validação de cada tipo está em `Coluna.limpar_valor()` (`quadros/models.py`).
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.

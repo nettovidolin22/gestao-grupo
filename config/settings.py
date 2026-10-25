@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "organizacao",
     "quadros",
+    "notificacoes",
 ]
 
 MIDDLEWARE = [
@@ -53,6 +54,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "notificacoes.context_processors.nao_lidas",
             ],
         },
     },
@@ -89,6 +91,25 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
+
+# Arquivos enviados (anexos). Só são baixados pela view que confere o acesso.
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
+TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024  # 10 MB
+
+# Endereço do sistema, usado nos links dos e-mails.
+SITE_URL = os.environ.get("SITE_URL", "http://127.0.0.1:8000")
+
+# E-mail: sem EMAIL_HOST, os e-mails aparecem no terminal (bom para testar).
+if os.environ.get("EMAIL_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["EMAIL_HOST"]
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Gestão do Grupo <nao-responda@localhost>")
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "painel"

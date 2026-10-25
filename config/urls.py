@@ -17,5 +17,6 @@ urlpatterns = [
         name="password_change",
     ),
     path("quadros/", include("quadros.urls")),
+    path("notificacoes/", include("notificacoes.urls")),
     path("admin/", admin.site.urls),
 ]

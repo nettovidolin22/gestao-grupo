@@ -190,3 +190,56 @@ class Item(models.Model):
         else:
             self.valores[str(coluna.pk)] = valor
         self.save(update_fields=["valores"])
+
+
+def caminho_anexo(anexo, nome_arquivo):
+    return f"anexos/quadro_{anexo.item.grupo.quadro_id}/item_{anexo.item_id}/{nome_arquivo}"
+
+
+class Comentario(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="comentarios")
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    texto = models.TextField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "comentário"
+        ordering = ["criado_em"]
+
+
+class Anexo(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="anexos")
+    arquivo = models.FileField(upload_to=caminho_anexo)
+    nome = models.CharField(max_length=255)
+    tamanho = models.PositiveIntegerField(default=0)
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    enviado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-enviado_em"]
+
+
+class Subtarefa(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="subtarefas")
+    nome = models.CharField(max_length=255)
+    feita = models.BooleanField(default=False)
+    ordem = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["ordem", "pk"]
+
+
+class Atividade(models.Model):
+    """Histórico do item: quem fez o quê e quando."""
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="atividades")
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    descricao = models.CharField(max_length=300)
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criada_em", "-pk"]

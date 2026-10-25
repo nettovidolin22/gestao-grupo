@@ -6,12 +6,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Max, Prefetch
-from django.http import HttpResponse
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from . import colaboracao
 from .forms import ColunaForm, DuplicarForm, GrupoForm, QuadroForm
-from .models import Coluna, Grupo, Item, Quadro
+from .models import Anexo, Coluna, Comentario, Grupo, Item, Quadro, Subtarefa
 
 
 def pode_gerenciar(usuario):
@@ -222,6 +224,7 @@ def item_criar(request, grupo_pk):
     if not nome:
         return HttpResponse(status=204)
     item = grupo.itens.create(nome=nome, ordem=proxima_ordem(grupo.itens), criado_por=request.user)
+    colaboracao.registrar(item, request.user, "criou o item")
     if htmx(request):
         return render_linha(request, item)
     return redirect("quadros:detalhe", pk=grupo.quadro_id)
@@ -232,7 +235,8 @@ def item_criar(request, grupo_pk):
 def item_nome(request, pk):
     item = item_do_usuario(request.user, pk)
     nome = request.POST.get("nome", "").strip()[:255]
-    if nome:
+    if nome and nome != item.nome:
+        colaboracao.registrar(item, request.user, f"renomeou de “{item.nome}” para “{nome}”")
         item.nome = nome
         item.save(update_fields=["nome"])
     if htmx(request):
@@ -246,10 +250,13 @@ def item_valor(request, pk, coluna_pk):
     item = item_do_usuario(request.user, pk)
     coluna = get_object_or_404(Coluna, pk=coluna_pk, quadro_id=item.grupo.quadro_id)
     erro = None
+    anterior = item.valor(coluna)
     try:
         item.definir_valor(coluna, request.POST.get("valor"))
     except ValidationError as e:
         erro = e.messages[0]
+    else:
+        colaboracao.ao_mudar_valor(item, coluna, anterior, request.user)
     if htmx(request):
         return render(
             request,
@@ -350,3 +357,132 @@ def coluna_excluir(request, quadro_pk, pk):
     coluna.delete()
     messages.success(request, f"Coluna “{coluna.nome}” excluída.")
     return redirect("quadros:colunas", quadro_pk=quadro.pk)
+
+
+@login_required
+def item_detalhe(request, pk):
+    item = item_do_usuario(request.user, pk)
+    quadro = item.grupo.quadro
+    pessoas = list(quadro.pessoas())
+    return render(
+        request,
+        "quadros/item_detalhe.html",
+        {
+            "item": item,
+            "quadro": quadro,
+            "colunas": list(quadro.colunas.all()),
+            "pessoas": pessoas,
+            "comentarios": item.comentarios.select_related("autor"),
+            "anexos": item.anexos.select_related("enviado_por"),
+            "subtarefas": item.subtarefas.all(),
+            "atividades": item.atividades.select_related("usuario")[:50],
+            "usuarios_mencao": [p.username for p in pessoas],
+            "tamanho_maximo_mb": settings.TAMANHO_MAXIMO_ANEXO // (1024 * 1024),
+            "pode_gerenciar": pode_gerenciar(request.user),
+        },
+    )
+
+
+@login_required
+@require_POST
+def comentario_criar(request, pk):
+    item = item_do_usuario(request.user, pk)
+    texto = request.POST.get("texto", "").strip()
+    if texto:
+        comentario = item.comentarios.create(autor=request.user, texto=texto[:5000])
+        colaboracao.ao_comentar(comentario)
+    return redirect(f"{colaboracao.link_item(item)}#comentarios")
+
+
+@login_required
+@require_POST
+def comentario_excluir(request, pk):
+    comentario = get_object_or_404(Comentario, pk=pk, autor=request.user)
+    item = item_do_usuario(request.user, comentario.item_id)
+    comentario.delete()
+    return redirect(f"{colaboracao.link_item(item)}#comentarios")
+
+
+@login_required
+@require_POST
+def anexo_enviar(request, pk):
+    item = item_do_usuario(request.user, pk)
+    arquivo = request.FILES.get("arquivo")
+    if not arquivo:
+        messages.error(request, "Escolha um arquivo.")
+    elif arquivo.size > settings.TAMANHO_MAXIMO_ANEXO:
+        limite = settings.TAMANHO_MAXIMO_ANEXO // (1024 * 1024)
+        messages.error(request, f"O arquivo passa do limite de {limite} MB.")
+    else:
+        item.anexos.create(
+            arquivo=arquivo, nome=arquivo.name[:255], tamanho=arquivo.size, enviado_por=request.user
+        )
+        colaboracao.registrar(item, request.user, f"anexou “{arquivo.name[:200]}”")
+    return redirect(f"{colaboracao.link_item(item)}#anexos")
+
+
+def anexo_do_usuario(usuario, pk):
+    anexo = get_object_or_404(Anexo.objects.select_related("item"), pk=pk)
+    item_do_usuario(usuario, anexo.item_id)  # 404 se o usuário não vê o item
+    return anexo
+
+
+@login_required
+def anexo_baixar(request, pk):
+    anexo = anexo_do_usuario(request.user, pk)
+    try:
+        arquivo = anexo.arquivo.open("rb")
+    except FileNotFoundError:
+        raise Http404("Arquivo não encontrado.")
+    return FileResponse(arquivo, as_attachment=True, filename=anexo.nome)
+
+
+@login_required
+@require_POST
+def anexo_excluir(request, pk):
+    anexo = anexo_do_usuario(request.user, pk)
+    if anexo.enviado_por_id != request.user.pk and not pode_gerenciar(request.user):
+        raise PermissionDenied("Só quem enviou ou um gestor pode excluir o anexo.")
+    item = anexo.item
+    anexo.arquivo.delete(save=False)
+    anexo.delete()
+    colaboracao.registrar(item, request.user, f"removeu o anexo “{anexo.nome}”")
+    return redirect(f"{colaboracao.link_item(item)}#anexos")
+
+
+@login_required
+@require_POST
+def subtarefa_criar(request, pk):
+    item = item_do_usuario(request.user, pk)
+    nome = request.POST.get("nome", "").strip()[:255]
+    if nome:
+        item.subtarefas.create(nome=nome, ordem=proxima_ordem(item.subtarefas))
+        colaboracao.registrar(item, request.user, f"adicionou a subtarefa “{nome}”")
+    return redirect(f"{colaboracao.link_item(item)}#subtarefas")
+
+
+def subtarefa_do_usuario(usuario, pk):
+    subtarefa = get_object_or_404(Subtarefa, pk=pk)
+    item_do_usuario(usuario, subtarefa.item_id)
+    return subtarefa
+
+
+@login_required
+@require_POST
+def subtarefa_alternar(request, pk):
+    subtarefa = subtarefa_do_usuario(request.user, pk)
+    subtarefa.feita = not subtarefa.feita
+    subtarefa.save(update_fields=["feita"])
+    acao = "concluiu" if subtarefa.feita else "reabriu"
+    colaboracao.registrar(subtarefa.item, request.user, f"{acao} a subtarefa “{subtarefa.nome}”")
+    return redirect(f"{colaboracao.link_item(subtarefa.item)}#subtarefas")
+
+
+@login_required
+@require_POST
+def subtarefa_excluir(request, pk):
+    subtarefa = subtarefa_do_usuario(request.user, pk)
+    item = subtarefa.item
+    subtarefa.delete()
+    colaboracao.registrar(item, request.user, f"removeu a subtarefa “{subtarefa.nome}”")
+    return redirect(f"{colaboracao.link_item(item)}#subtarefas")

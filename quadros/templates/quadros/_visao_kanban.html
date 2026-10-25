@@ -14,7 +14,7 @@
     <ul class="raia-itens">
       {% for item in raia.itens %}
       <li class="cartao-item" draggable="true" data-url="{% url 'quadros:item_valor' item.pk coluna.pk %}">
-        <strong>{{ item.nome }}</strong>
+        <a class="titulo-cartao" href="{% url 'quadros:item_detalhe' item.pk %}" draggable="false">{{ item.nome }}</a>
         <span class="sutil">{{ item.grupo.nome }}</span>
         {% if coluna_pessoa %}{% with pessoa=item|valor_de:coluna_pessoa %}{% if pessoa %}<span class="detalhe-item">{{ coluna_pessoa.nome }}: {{ nomes_pessoas|chave:pessoa }}</span>{% endif %}{% endwith %}{% endif %}
         {% if coluna_data %}{% with prazo=item|valor_de:coluna_data %}{% if prazo %}<span class="detalhe-item">{{ coluna_data.nome }}: {{ prazo|data_br }}</span>{% endif %}{% endwith %}{% endif %}

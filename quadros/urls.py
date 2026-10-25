@@ -22,4 +22,13 @@ urlpatterns = [
     path("itens/<int:pk>/nome/", views.item_nome, name="item_nome"),
     path("itens/<int:pk>/valor/<int:coluna_pk>/", views.item_valor, name="item_valor"),
     path("itens/<int:pk>/excluir/", views.item_excluir, name="item_excluir"),
+    path("itens/<int:pk>/", views.item_detalhe, name="item_detalhe"),
+    path("itens/<int:pk>/comentar/", views.comentario_criar, name="comentario_criar"),
+    path("comentarios/<int:pk>/excluir/", views.comentario_excluir, name="comentario_excluir"),
+    path("itens/<int:pk>/anexar/", views.anexo_enviar, name="anexo_enviar"),
+    path("anexos/<int:pk>/", views.anexo_baixar, name="anexo_baixar"),
+    path("anexos/<int:pk>/excluir/", views.anexo_excluir, name="anexo_excluir"),
+    path("itens/<int:pk>/subtarefas/", views.subtarefa_criar, name="subtarefa_criar"),
+    path("subtarefas/<int:pk>/alternar/", views.subtarefa_alternar, name="subtarefa_alternar"),
+    path("subtarefas/<int:pk>/excluir/", views.subtarefa_excluir, name="subtarefa_excluir"),
 ]
