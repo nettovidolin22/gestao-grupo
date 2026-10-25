@@ -3,7 +3,12 @@
 {% block conteudo %}
 <div class="cabecalho">
   <h1>Quadros</h1>
-  {% if pode_gerenciar %}<a class="botao primario" href="{% url 'quadros:novo' %}">+ Novo quadro</a>{% endif %}
+  {% if pode_gerenciar %}
+  <div class="acoes">
+    <a class="botao" href="{% url 'quadros:importar' %}">Importar do Monday</a>
+    <a class="botao primario" href="{% url 'quadros:novo' %}">+ Novo quadro</a>
+  </div>
+  {% endif %}
 </div>
 {% for filial, quadros in por_filial %}
 <section class="cartao">

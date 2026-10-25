@@ -243,3 +243,39 @@ class Atividade(models.Model):
 
     class Meta:
         ordering = ["-criada_em", "-pk"]
+
+
+class Automacao(models.Model):
+    """Regra simples: quando a coluna de status mudar para um valor, fazer uma ação."""
+
+    class Acao(models.TextChoices):
+        AVISAR_PESSOA = "avisar_pessoa", "Avisar uma pessoa"
+        AVISAR_RESPONSAVEIS = "avisar_responsaveis", "Avisar os responsáveis do item"
+        MOVER_GRUPO = "mover_grupo", "Mover o item para um grupo"
+
+    quadro = models.ForeignKey(Quadro, on_delete=models.CASCADE, related_name="automacoes")
+    coluna = models.ForeignKey(Coluna, on_delete=models.CASCADE, related_name="automacoes")
+    valor = models.CharField("quando mudar para", max_length=40)
+    acao = models.CharField(max_length=30, choices=Acao.choices)
+    pessoa = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    grupo = models.ForeignKey(
+        Grupo, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    ativa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "automação"
+        verbose_name_plural = "automações"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return f"Quando {self.coluna.nome} mudar para {self.valor}: {self.descricao_acao()}"
+
+    def descricao_acao(self):
+        if self.acao == self.Acao.AVISAR_PESSOA and self.pessoa:
+            return f"avisar {self.pessoa.get_full_name() or self.pessoa.username}"
+        if self.acao == self.Acao.MOVER_GRUPO and self.grupo:
+            return f"mover para o grupo {self.grupo.nome}"
+        return self.get_acao_display().lower()

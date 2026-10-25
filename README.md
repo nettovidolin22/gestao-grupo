@@ -37,6 +37,12 @@ Sistema de gestão de tarefas e projetos para o grupo (empresas, filiais e equip
 
 Sem `EMAIL_HOST` no `.env`, os e-mails aparecem no terminal em vez de serem enviados.
 
+## Módulo 5: gestão
+
+- **Automações** por quadro (botão Automações): quando uma coluna de Status mudar para uma etiqueta, avisar uma pessoa, avisar os responsáveis ou mover o item para outro grupo. Dá para pausar e excluir
+- **Painel gerencial** (menu Painel, só gestores): itens em aberto, concluídos, atrasados e que vencem em 7 dias, com quebra por filial, por responsável e a lista dos atrasados. Filtro por empresa e filial
+- **Importar do Monday** (na lista de quadros): envie o Excel exportado do Monday (ou um CSV). Cada grupo vira um grupo, e o tipo de cada coluna (Status, Pessoa, Data, Número, Texto) é adivinhado pelos valores. Pessoas são reconhecidas pelo nome completo ou usuário
+
 Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como chave. A validação de cada tipo está em `Coluna.limpar_valor()` (`quadros/models.py`).
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.

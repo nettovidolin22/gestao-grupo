@@ -12,8 +12,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from . import colaboracao
-from .forms import ColunaForm, DuplicarForm, GrupoForm, QuadroForm
-from .models import Anexo, Coluna, Comentario, Grupo, Item, Quadro, Subtarefa
+from .forms import AutomacaoForm, ColunaForm, DuplicarForm, GrupoForm, ImportarForm, QuadroForm
+from .importacao import ErroImportacao, importar_planilha
+from .painel import resumo
+from .models import Anexo, Automacao, Coluna, Comentario, Grupo, Item, Quadro, Subtarefa
 
 
 def pode_gerenciar(usuario):
@@ -251,6 +253,7 @@ def item_valor(request, pk, coluna_pk):
     coluna = get_object_or_404(Coluna, pk=coluna_pk, quadro_id=item.grupo.quadro_id)
     erro = None
     anterior = item.valor(coluna)
+    grupo_antes = item.grupo_id
     try:
         item.definir_valor(coluna, request.POST.get("valor"))
     except ValidationError as e:
@@ -258,11 +261,14 @@ def item_valor(request, pk, coluna_pk):
     else:
         colaboracao.ao_mudar_valor(item, coluna, anterior, request.user)
     if htmx(request):
-        return render(
+        resposta = render(
             request,
             "quadros/_celula.html",
             {"item": item, "coluna": coluna, "pessoas": item.grupo.quadro.pessoas(), "erro": erro},
         )
+        if item.grupo_id != grupo_antes:  # uma automação moveu o item: recarrega a tela
+            resposta["HX-Refresh"] = "true"
+        return resposta
     if erro:
         messages.error(request, erro)
     return redirect("quadros:detalhe", pk=item.grupo.quadro_id)
@@ -486,3 +492,87 @@ def subtarefa_excluir(request, pk):
     subtarefa.delete()
     colaboracao.registrar(item, request.user, f"removeu a subtarefa “{subtarefa.nome}”")
     return redirect(f"{colaboracao.link_item(item)}#subtarefas")
+
+
+@login_required
+def automacoes(request, quadro_pk):
+    exigir_gestor(request.user)
+    quadro = quadro_do_usuario(request.user, quadro_pk)
+    form = AutomacaoForm(request.POST or None, quadro=quadro)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Automação criada.")
+        return redirect("quadros:automacoes", quadro_pk=quadro.pk)
+    regras = quadro.automacoes.select_related("coluna", "pessoa", "grupo")
+    return render(
+        request, "quadros/automacoes.html", {"quadro": quadro, "form": form, "regras": regras}
+    )
+
+
+@login_required
+@require_POST
+def automacao_alternar(request, quadro_pk, pk):
+    exigir_gestor(request.user)
+    quadro = quadro_do_usuario(request.user, quadro_pk)
+    regra = get_object_or_404(Automacao, pk=pk, quadro=quadro)
+    regra.ativa = not regra.ativa
+    regra.save(update_fields=["ativa"])
+    return redirect("quadros:automacoes", quadro_pk=quadro.pk)
+
+
+@login_required
+@require_POST
+def automacao_excluir(request, quadro_pk, pk):
+    exigir_gestor(request.user)
+    quadro = quadro_do_usuario(request.user, quadro_pk)
+    get_object_or_404(Automacao, pk=pk, quadro=quadro).delete()
+    messages.success(request, "Automação excluída.")
+    return redirect("quadros:automacoes", quadro_pk=quadro.pk)
+
+
+@login_required
+def importar(request):
+    exigir_gestor(request.user)
+    form = ImportarForm(request.POST or None, request.FILES or None, usuario=request.user)
+    if request.method == "POST" and form.is_valid():
+        try:
+            quadro = importar_planilha(
+                form.cleaned_data["arquivo"],
+                nome=form.cleaned_data["nome"],
+                filial=form.cleaned_data["filial"],
+                usuario=request.user,
+            )
+        except ErroImportacao as e:
+            form.add_error("arquivo", str(e))
+        else:
+            total = Item.objects.filter(grupo__quadro=quadro).count()
+            messages.success(request, f"Quadro importado com {total} itens. Confira as colunas e etiquetas.")
+            return redirect("quadros:detalhe", pk=quadro.pk)
+    return render(
+        request,
+        "quadros/form.html",
+        {"form": form, "titulo": "Importar quadro do Monday", "multipart": True,
+         "ajuda": "No Monday, abra o quadro, clique no menu ··· e escolha Exportar para Excel. "
+                  "Envie aqui o arquivo .xlsx (ou um .csv). Cada grupo do Monday vira um grupo, "
+                  "e o tipo de cada coluna é adivinhado pelos valores."},
+    )
+
+
+@login_required
+def painel_gerencial(request):
+    exigir_gestor(request.user)
+    empresas = request.user.empresas_visiveis()
+    filiais = request.user.filiais_visiveis().select_related("empresa")
+    empresa_id = request.GET.get("empresa") or None
+    filial_id = request.GET.get("filial") or None
+    if empresa_id and not empresas.filter(pk=empresa_id).exists():
+        empresa_id = None
+    if filial_id and not filiais.filter(pk=filial_id).exists():
+        filial_id = None
+    contexto = resumo(request.user, empresa_id=empresa_id, filial_id=filial_id)
+    contexto.update(
+        empresas=empresas, filiais=filiais,
+        empresa_id=int(empresa_id) if empresa_id else None,
+        filial_id=int(filial_id) if filial_id else None,
+    )
+    return render(request, "quadros/painel_gerencial.html", contexto)

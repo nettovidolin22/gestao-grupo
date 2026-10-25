@@ -151,3 +151,19 @@ button.caixa { width: 22px; height: 22px; padding: 0; border-radius: 4px; line-h
 .lista-notificacoes li { display: flex; justify-content: space-between; gap: 12px; }
 .lista-notificacoes li.nao-lida a { font-weight: 600; }
 .bolinha { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--erro); color: #fff; font-size: 12px; text-align: center; }
+
+/* Módulo 5: painel gerencial e automações */
+.filtros { display: flex; gap: 8px; flex-wrap: wrap; }
+.filtros select { padding: 6px 8px; border: 1px solid var(--borda); border-radius: 6px; font: inherit; background: var(--cartao); }
+.indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.indicador { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.indicador .rotulo { font-size: 13px; color: var(--sutil); }
+.indicador .numero { font-size: 28px; font-weight: 700; }
+.duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .duas-colunas { grid-template-columns: 1fr; } }
+.duas-colunas h2, .cartao > h2 { font-size: 17px; margin-top: 0; }
+.tabela-rolagem.sem-borda { border: none; }
+.barra { display: inline-block; width: 90px; height: 8px; background: #e9ecf2; border-radius: 4px; vertical-align: middle; overflow: hidden; }
+.barra span { display: block; height: 100%; background: #00c875; }
+.regra { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.regra.inativa > span:first-child { color: var(--sutil); }

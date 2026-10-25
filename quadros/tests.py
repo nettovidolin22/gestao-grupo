@@ -1,5 +1,6 @@
+import io
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 
 from django.core import mail
@@ -11,7 +12,7 @@ from django.urls import reverse
 
 from organizacao.models import Empresa, Filial, Usuario
 
-from .models import Coluna, Quadro
+from .models import Automacao, Coluna, Item, Quadro
 
 P = Usuario.Papel
 
@@ -288,3 +289,170 @@ class ColaboracaoTests(TestCase):
         self.assertRedirects(resposta, self.url("item_detalhe"))
         notificacao.refresh_from_db()
         self.assertTrue(notificacao.lida)
+
+
+class GestaoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        alfa = Empresa.objects.create(nome="Alfa")
+        cls.matriz = Filial.objects.create(empresa=alfa, nome="Matriz")
+        cls.gestor = Usuario.objects.create_user(
+            "gestor", password="x", first_name="Gil", papel=P.GESTOR_EMPRESA, empresa=alfa
+        )
+        cls.ana = Usuario.objects.create_user(
+            "ana", password="x", first_name="Ana", last_name="Lima",
+            papel=P.COLABORADOR, empresa=alfa, filial=cls.matriz,
+        )
+        cls.quadro = Quadro.criar_padrao(nome="Manutenção", filial=cls.matriz)
+        cls.status = cls.quadro.colunas.get(nome="Status")
+        cls.prazo = cls.quadro.colunas.get(nome="Prazo")
+        cls.responsavel = cls.quadro.colunas.get(nome="Responsável")
+        cls.grupo = cls.quadro.grupos.first()
+        cls.concluidos = cls.quadro.grupos.create(nome="Concluídos", ordem=1)
+        cls.item = cls.grupo.itens.create(nome="Revisar extintores")
+
+    def mudar_status(self, valor, usuario="ana"):
+        self.client.login(username=usuario, password="x")
+        return self.client.post(
+            reverse("quadros:item_valor", args=[self.item.pk, self.status.pk]),
+            {"valor": valor}, HTTP_HX_REQUEST="true",
+        )
+
+    def test_automacao_avisa_pessoa(self):
+        Automacao.objects.create(
+            quadro=self.quadro, coluna=self.status, valor="Parado",
+            acao=Automacao.Acao.AVISAR_PESSOA, pessoa=self.gestor,
+        )
+        self.mudar_status("Fazendo")
+        self.assertEqual(self.gestor.notificacoes.count(), 0)
+        self.mudar_status("Parado")
+        self.assertIn("mudou Status para Parado", self.gestor.notificacoes.get().texto)
+
+    def test_automacao_move_para_grupo_e_recarrega(self):
+        Automacao.objects.create(
+            quadro=self.quadro, coluna=self.status, valor="Feito",
+            acao=Automacao.Acao.MOVER_GRUPO, grupo=self.concluidos,
+        )
+        resposta = self.mudar_status("Feito")
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.grupo, self.concluidos)
+        self.assertEqual(resposta["HX-Refresh"], "true")
+
+    def test_automacao_pausada_nao_roda(self):
+        Automacao.objects.create(
+            quadro=self.quadro, coluna=self.status, valor="Parado",
+            acao=Automacao.Acao.AVISAR_PESSOA, pessoa=self.gestor, ativa=False,
+        )
+        self.mudar_status("Parado")
+        self.assertEqual(self.gestor.notificacoes.count(), 0)
+
+    def test_form_de_automacao_valida_etiqueta(self):
+        self.client.login(username="gestor", password="x")
+        url = reverse("quadros:automacoes", args=[self.quadro.pk])
+        resposta = self.client.post(url, {
+            "coluna": self.status.pk, "valor": "Inexistente", "acao": "avisar_pessoa",
+            "pessoa": self.gestor.pk, "ativa": "on",
+        })
+        self.assertContains(resposta, "Etiqueta inexistente")
+        self.client.post(url, {
+            "coluna": self.status.pk, "valor": "Feito", "acao": "mover_grupo",
+            "grupo": self.concluidos.pk, "ativa": "on",
+        })
+        self.assertEqual(self.quadro.automacoes.count(), 1)
+
+    def test_colaborador_nao_ve_automacoes_nem_painel(self):
+        self.client.login(username="ana", password="x")
+        self.assertEqual(self.client.get(reverse("quadros:automacoes", args=[self.quadro.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("quadros:painel_gerencial")).status_code, 403)
+
+    def test_painel_conta_atrasados_e_concluidos(self):
+        ontem = (date.today() - timedelta(days=1)).isoformat()
+        self.item.definir_valor(self.prazo, ontem)
+        self.item.definir_valor(self.responsavel, str(self.ana.pk))
+        feito = self.grupo.itens.create(nome="Trocar lâmpadas")
+        feito.definir_valor(self.status, "Feito")
+        feito.definir_valor(self.prazo, ontem)
+        self.client.login(username="gestor", password="x")
+        resposta = self.client.get(reverse("quadros:painel_gerencial"))
+        totais = resposta.context["totais"]
+        self.assertEqual((totais["itens"], totais["concluidos"], totais["atrasados"]), (2, 1, 1))
+        self.assertEqual(resposta.context["pessoas"][0]["nome"], "Ana Lima")
+        linha = resposta.context["por_filial"][0]
+        self.assertEqual((linha["filial"], linha["atrasados"], linha["percentual"]), (self.matriz, 1, 50))
+        self.assertContains(resposta, "Revisar extintores")
+
+
+class ImportacaoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        alfa = Empresa.objects.create(nome="Alfa")
+        cls.matriz = Filial.objects.create(empresa=alfa, nome="Matriz")
+        cls.gestor = Usuario.objects.create_user(
+            "gestor", password="x", papel=P.GESTOR_EMPRESA, empresa=alfa
+        )
+        Usuario.objects.create_user(
+            "ana", password="x", first_name="Ana", last_name="Lima",
+            papel=P.COLABORADOR, empresa=alfa, filial=cls.matriz,
+        )
+
+    def excel_monday(self):
+        from openpyxl import Workbook
+
+        livro = Workbook()
+        folha = livro.active
+        linhas = [
+            ["Compras"],
+            [],
+            ["A comprar"],
+            ["Name", "Subitems", "Person", "Status", "Date", "Valor"],
+            ["Papel A4", "", "Ana Lima", "Working on it", datetime(2026, 11, 30), 250.5],
+            ["Toner", "", "Ana Lima", "Stuck", datetime(2026, 12, 5), 900],
+            [None, "Subitems", "Name"],
+            [None, "", "subitem ignorado"],
+            [],
+            ["Comprados"],
+            ["Name", "Subitems", "Person", "Status", "Date", "Valor"],
+            ["Cadeiras", "", "", "Done", None, 3200],
+        ]
+        for linha in linhas:
+            folha.append(linha)
+        saida = io.BytesIO()
+        livro.save(saida)
+        return SimpleUploadedFile("compras.xlsx", saida.getvalue())
+
+    def test_importa_export_do_monday(self):
+        self.client.login(username="gestor", password="x")
+        resposta = self.client.post(
+            reverse("quadros:importar"), {"arquivo": self.excel_monday(), "filial": self.matriz.pk}
+        )
+        quadro = Quadro.objects.get(nome="Compras")
+        self.assertRedirects(resposta, reverse("quadros:detalhe", args=[quadro.pk]))
+        self.assertEqual(list(quadro.grupos.values_list("nome", flat=True)), ["A comprar", "Comprados"])
+        tipos = dict(quadro.colunas.values_list("nome", "tipo"))
+        self.assertEqual(tipos, {"Person": "pessoa", "Status": "status", "Date": "data", "Valor": "numero"})
+        status = quadro.colunas.get(nome="Status")
+        self.assertIn({"nome": "Done", "cor": "verde"}, status.opcoes)
+        papel = Item.objects.get(nome="Papel A4")
+        self.assertEqual(papel.valor(quadro.colunas.get(nome="Date")), "2026-11-30")
+        self.assertEqual(papel.valor(quadro.colunas.get(nome="Valor")), "250.5")
+        self.assertEqual(Item.objects.filter(grupo__quadro=quadro).count(), 3)
+
+    def test_importa_csv_simples(self):
+        conteudo = "Nome;Setor;Prazo\nPintar muro;Obras;30/11/2026\nTrocar porta;Obras;01/12/2026\n"
+        arquivo = SimpleUploadedFile("tarefas.csv", conteudo.encode("utf-8"))
+        self.client.login(username="gestor", password="x")
+        self.client.post(
+            reverse("quadros:importar"),
+            {"arquivo": arquivo, "filial": self.matriz.pk, "nome": "Obras"},
+        )
+        quadro = Quadro.objects.get(nome="Obras")
+        self.assertEqual(quadro.colunas.get(nome="Prazo").tipo, "data")
+        self.assertEqual(quadro.colunas.get(nome="Setor").tipo, "status")
+        self.assertEqual(Item.objects.filter(grupo__quadro=quadro).count(), 2)
+
+    def test_arquivo_sem_itens_mostra_erro(self):
+        arquivo = SimpleUploadedFile("vazio.csv", b"so uma linha\n")
+        self.client.login(username="gestor", password="x")
+        resposta = self.client.post(reverse("quadros:importar"), {"arquivo": arquivo, "filial": self.matriz.pk})
+        self.assertContains(resposta, "Não encontrei itens")
+        self.assertFalse(Quadro.objects.exists())
