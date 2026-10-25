@@ -80,3 +80,36 @@ button.excluir:hover { color: var(--erro); }
 .cor-borda-laranja { border-left-color: #fdab3d; } .texto-laranja { color: #b86b00; }
 .cor-borda-vermelho { border-left-color: #e2445c; } .texto-vermelho { color: #c62838; }
 .cor-borda-roxo { border-left-color: #a25ddc; } .texto-roxo { color: #7b3bb3; }
+
+/* Módulo 3: abas, Kanban e calendário */
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--borda); margin-bottom: 16px; }
+.abas a { padding: 8px 14px; text-decoration: none; color: var(--sutil); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.abas a.ativa { color: var(--primaria); border-bottom-color: var(--primaria); font-weight: 600; }
+.escolher-coluna { margin-bottom: 8px; font-size: 14px; }
+.escolher-coluna select { margin-left: 6px; padding: 4px 8px; border: 1px solid var(--borda); border-radius: 6px; font: inherit; }
+.dica { font-size: 13px; margin-top: 0; }
+.cor-sem { background: #e9ecf2; color: var(--texto); }
+
+.kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.raia { flex: 0 0 260px; background: #eaedf3; border-radius: 10px; padding: 8px; border: 2px dashed transparent; }
+.raia.alvo { border-color: var(--primaria); }
+.raia-titulo { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 14px; }
+.contador { font-weight: normal; opacity: .85; }
+.raia-itens { list-style: none; margin: 8px 0 0; padding: 0; min-height: 40px; display: flex; flex-direction: column; gap: 8px; }
+.cartao-item { background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 4px; cursor: grab; font-size: 14px; }
+.cartao-item.arrastando { opacity: .5; }
+.cartao-item .sutil, .detalhe-item { font-size: 12px; }
+.detalhe-item { color: var(--sutil); }
+.cartao-item select.mover { margin-top: 4px; font: inherit; font-size: 12px; padding: 2px 4px; border: 1px solid var(--borda); border-radius: 4px; color: var(--sutil); background: transparent; }
+
+.calendario-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.calendario-topo h2 { margin: 0 8px; font-size: 20px; min-width: 200px; text-align: center; }
+.calendario { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
+.calendario th { padding: 8px; font-size: 13px; color: var(--sutil); border-bottom: 1px solid var(--borda); }
+.calendario td { vertical-align: top; height: 110px; padding: 4px; border: 1px solid var(--borda); }
+.calendario td.fora-do-mes { background: #f8f9fb; color: #b0b6c3; }
+.calendario td.hoje .numero-dia { background: var(--primaria); color: #fff; border-radius: 50%; }
+.numero-dia { display: inline-block; min-width: 24px; height: 24px; line-height: 24px; text-align: center; font-size: 13px; margin-bottom: 2px; }
+.pilula { display: block; font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sem-data { margin-top: 16px; }
+.sem-data h3 { margin-top: 0; font-size: 16px; }

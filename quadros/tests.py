@@ -117,3 +117,53 @@ class QuadrosTests(TestCase):
         )
         fase = self.quadro.colunas.get(nome="Fase")
         self.assertEqual(fase.opcoes[1], {"nome": "Fim", "cor": "verde"})
+
+
+class VisualizacoesTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        alfa = Empresa.objects.create(nome="Alfa")
+        matriz = Filial.objects.create(empresa=alfa, nome="Matriz")
+        Usuario.objects.create_user(
+            "colab", password="x", papel=P.COLABORADOR, empresa=alfa, filial=matriz
+        )
+        cls.quadro = Quadro.criar_padrao(nome="Manutenção", filial=matriz)
+        cls.status = cls.quadro.colunas.get(nome="Status")
+        cls.prazo = cls.quadro.colunas.get(nome="Prazo")
+        grupo = cls.quadro.grupos.first()
+        cls.feito = grupo.itens.create(nome="Item feito")
+        cls.feito.definir_valor(cls.status, "Feito")
+        cls.feito.definir_valor(cls.prazo, "2026-11-30")
+        cls.sem_nada = grupo.itens.create(nome="Item sem status")
+
+    def setUp(self):
+        self.client.login(username="colab", password="x")
+        self.url = reverse("quadros:detalhe", args=[self.quadro.pk])
+
+    def test_kanban_separa_por_status(self):
+        resposta = self.client.get(self.url, {"visao": "kanban"})
+        raias = {r["nome"]: [i.nome for i in r["itens"]] for r in resposta.context["raias"]}
+        self.assertEqual(raias["Feito"], ["Item feito"])
+        self.assertEqual(raias[""], ["Item sem status"])
+        self.assertEqual(raias["A fazer"], [])
+
+    def test_calendario_coloca_item_no_dia(self):
+        resposta = self.client.get(self.url, {"visao": "calendario", "mes": "2026-11"})
+        self.assertContains(resposta, "Novembro de 2026")
+        dias = {d["dia"].isoformat(): d["itens"] for s in resposta.context["semanas"] for d in s}
+        self.assertEqual([i.nome for i in dias["2026-11-30"]], ["Item feito"])
+        self.assertEqual([i.nome for i in resposta.context["sem_data"]], ["Item sem status"])
+
+    def test_mes_invalido_usa_mes_atual(self):
+        resposta = self.client.get(self.url, {"visao": "calendario", "mes": "abc"})
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_quadro_sem_coluna_de_status_explica_no_kanban(self):
+        self.status.delete()
+        self.quadro.colunas.filter(tipo=Coluna.Tipo.STATUS).delete()
+        resposta = self.client.get(self.url, {"visao": "kanban"})
+        self.assertContains(resposta, "ainda não tem nenhuma")
+
+    def test_visao_desconhecida_mostra_tabela(self):
+        resposta = self.client.get(self.url, {"visao": "xyz"})
+        self.assertEqual(resposta.context["visao"], "tabela")

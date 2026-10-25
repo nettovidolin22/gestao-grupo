@@ -20,6 +20,12 @@ Sistema de gestão de tarefas e projetos para o grupo (empresas, filiais e equip
 - Duplicar quadro (com ou sem itens) para usar como modelo, e arquivar quadro
 - Colaboradores criam e editam itens; só gestores mudam quadros, grupos e colunas
 
+## Módulo 3: visualizações
+
+- Abas **Tabela**, **Kanban** e **Calendário** em cada quadro
+- Kanban: cartões agrupados por uma coluna de Status (escolha qual em "Agrupar por"). Arraste um cartão para outra coluna, ou use o seletor no cartão pelo celular, e o status muda na hora
+- Calendário: itens posicionados no mês pela coluna de Data, coloridos pelo status, com navegação entre meses e lista dos itens sem data
+
 Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como chave. A validação de cada tipo está em `Coluna.limpar_valor()` (`quadros/models.py`).
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.

@@ -1,0 +1,40 @@
+{% load quadros_extras %}
+{% if not coluna %}
+<p class="cartao">O calendário posiciona os itens por uma coluna de Data, e este quadro ainda não tem nenhuma.{% if pode_gerenciar %} <a href="{% url 'quadros:coluna_nova' quadro.pk %}">Criar uma coluna de Data</a>.{% endif %}</p>
+{% else %}
+{% include "quadros/_escolher_coluna.html" with rotulo="Posicionar pela data de" %}
+<div class="calendario-topo">
+  <a class="botao" href="?visao=calendario&coluna={{ coluna.pk }}&mes={{ mes_anterior }}" aria-label="Mês anterior">‹</a>
+  <h2>{{ titulo_mes }}</h2>
+  <a class="botao" href="?visao=calendario&coluna={{ coluna.pk }}&mes={{ mes_seguinte }}" aria-label="Próximo mês">›</a>
+  <a class="botao" href="?visao=calendario&coluna={{ coluna.pk }}&mes={{ mes_atual }}">Hoje</a>
+</div>
+<div class="tabela-rolagem">
+  <table class="calendario">
+    <thead><tr>{% for d in dias_semana %}<th>{{ d }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for semana in semanas %}
+      <tr>
+        {% for dia in semana %}
+        <td class="{% if not dia.do_mes %}fora-do-mes{% endif %}{% if dia.hoje %} hoje{% endif %}">
+          <span class="numero-dia">{{ dia.dia.day }}</span>
+          {% for item in dia.itens %}
+          <span class="pilula {% with cor=item|cor_item:coluna_status %}{% if cor %}cor-{{ cor }}{% else %}cor-sem{% endif %}{% endwith %}"
+                title="{{ item.nome }}{% if coluna_status %} · {{ item|valor_de:coluna_status|default:'Sem status' }}{% endif %}">{{ item.nome }}</span>
+          {% endfor %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if sem_data %}
+<section class="cartao sem-data">
+  <h3>Sem {{ coluna.nome|lower }} ({{ sem_data|length }})</h3>
+  <ul class="lista-quadros">
+    {% for item in sem_data %}<li>{{ item.nome }} <span class="sutil">· {{ item.grupo.nome }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}

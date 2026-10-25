@@ -21,38 +21,13 @@
   {% endif %}
 </div>
 
-{% for grupo in grupos %}
-<section class="grupo cor-borda-{{ grupo.cor }}">
-  <h2 class="grupo-titulo texto-{{ grupo.cor }}">
-    {{ grupo.nome }}
-    {% if pode_gerenciar %}<a class="editar-grupo" href="{% url 'quadros:grupo_editar' quadro.pk grupo.pk %}">editar</a>{% endif %}
-  </h2>
-  <div class="tabela-rolagem">
-    <table class="tabela-quadro">
-      <thead>
-        <tr>
-          <th class="col-nome">Item</th>
-          {% for coluna in colunas %}<th>{{ coluna.nome }}</th>{% endfor %}
-          <th class="col-acao"></th>
-        </tr>
-      </thead>
-      <tbody id="itens-{{ grupo.pk }}">
-        {% for item in grupo.itens.all %}{% include "quadros/_linha.html" %}{% endfor %}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="{{ colunas|length|add:2 }}">
-            <form method="post" action="{% url 'quadros:item_criar' grupo.pk %}"
-                  hx-post="{% url 'quadros:item_criar' grupo.pk %}" hx-target="#itens-{{ grupo.pk }}" hx-swap="beforeend"
-                  hx-on::after-request="if (event.detail.successful) this.reset()">
-              {% csrf_token %}
-              <input class="novo-item" name="nome" placeholder="+ Adicionar item" autocomplete="off">
-            </form>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</section>
-{% endfor %}
+<nav class="abas" aria-label="Visualizações">
+  {% for chave_visao, nome in visoes.items %}
+  <a href="?visao={{ chave_visao }}"{% if visao == chave_visao %} class="ativa" aria-current="page"{% endif %}>{{ nome }}</a>
+  {% endfor %}
+</nav>
+
+{% if visao == "kanban" %}{% include "quadros/_visao_kanban.html" %}
+{% elif visao == "calendario" %}{% include "quadros/_visao_calendario.html" %}
+{% else %}{% include "quadros/_visao_tabela.html" %}{% endif %}
 {% endblock %}

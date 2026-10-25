@@ -1,3 +1,5 @@
+import calendar
+from datetime import date, timedelta
 from itertools import groupby
 
 from django.contrib import messages
@@ -101,21 +103,100 @@ def duplicar(request, pk):
     )
 
 
+VISOES = {"tabela": "Tabela", "kanban": "Kanban", "calendario": "Calendário"}
+NOMES_MESES = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+]
+
+
+def coluna_escolhida(colunas, tipo, pk):
+    """A coluna do tipo pedido indicada na URL, ou a primeira desse tipo."""
+    do_tipo = [c for c in colunas if c.tipo == tipo]
+    for coluna in do_tipo:
+        if str(coluna.pk) == pk:
+            return coluna, do_tipo
+    return (do_tipo[0] if do_tipo else None), do_tipo
+
+
+def contexto_kanban(itens, coluna):
+    raias = [{"nome": o["nome"], "cor": o["cor"], "itens": []} for o in coluna.opcoes]
+    sem_status = {"nome": "", "cor": "", "itens": []}
+    por_nome = {r["nome"]: r for r in raias}
+    for item in itens:
+        por_nome.get(item.valor(coluna), sem_status)["itens"].append(item)
+    return [sem_status] + raias
+
+
+def contexto_calendario(itens, coluna, mes_texto):
+    hoje = date.today()
+    try:
+        ano, mes = (int(p) for p in mes_texto.split("-"))
+        primeiro = date(ano, mes, 1)
+    except (ValueError, AttributeError):
+        primeiro = hoje.replace(day=1)
+    por_dia, sem_data = {}, []
+    for item in itens:
+        valor = item.valor(coluna)
+        if valor:
+            por_dia.setdefault(date.fromisoformat(valor), []).append(item)
+        else:
+            sem_data.append(item)
+    semanas = [
+        [{"dia": d, "do_mes": d.month == primeiro.month, "hoje": d == hoje, "itens": por_dia.get(d, [])}
+         for d in semana]
+        for semana in calendar.Calendar(firstweekday=6).monthdatescalendar(primeiro.year, primeiro.month)
+    ]
+    anterior = (primeiro - timedelta(days=1)).replace(day=1)
+    seguinte = (primeiro + timedelta(days=32)).replace(day=1)
+    return {
+        "semanas": semanas,
+        "sem_data": sem_data,
+        "titulo_mes": f"{NOMES_MESES[primeiro.month - 1]} de {primeiro.year}",
+        "mes_anterior": anterior.strftime("%Y-%m"),
+        "mes_seguinte": seguinte.strftime("%Y-%m"),
+        "mes_atual": hoje.strftime("%Y-%m"),
+        "mes_texto": primeiro.strftime("%Y-%m"),
+        "dias_semana": ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+    }
+
+
 @login_required
 def detalhe(request, pk):
     quadro = quadro_do_usuario(request.user, pk)
-    grupos = quadro.grupos.prefetch_related(Prefetch("itens", queryset=Item.objects.all()))
-    return render(
-        request,
-        "quadros/detalhe.html",
-        {
-            "quadro": quadro,
-            "grupos": grupos,
-            "colunas": list(quadro.colunas.all()),
-            "pessoas": list(quadro.pessoas()),
-            "pode_gerenciar": pode_gerenciar(request.user),
-        },
-    )
+    grupos = list(quadro.grupos.prefetch_related(Prefetch("itens", queryset=Item.objects.all())))
+    colunas = list(quadro.colunas.all())
+    pessoas = list(quadro.pessoas())
+    visao = request.GET.get("visao")
+    if visao not in VISOES:
+        visao = "tabela"
+    contexto = {
+        "quadro": quadro,
+        "grupos": grupos,
+        "colunas": colunas,
+        "pessoas": pessoas,
+        "nomes_pessoas": {p.pk: p.get_full_name() or p.username for p in pessoas},
+        "pode_gerenciar": pode_gerenciar(request.user),
+        "visao": visao,
+        "visoes": VISOES,
+        "coluna_status": next((c for c in colunas if c.tipo == Coluna.Tipo.STATUS), None),
+        "coluna_pessoa": next((c for c in colunas if c.tipo == Coluna.Tipo.PESSOA), None),
+        "coluna_data": next((c for c in colunas if c.tipo == Coluna.Tipo.DATA), None),
+    }
+    itens = [item for grupo in grupos for item in grupo.itens.all()]
+    if visao == "kanban":
+        coluna, opcoes = coluna_escolhida(colunas, Coluna.Tipo.STATUS, request.GET.get("coluna"))
+        contexto.update(coluna=coluna, colunas_opcao=opcoes)
+        if coluna:
+            contexto["coluna_status"] = coluna
+            contexto["raias"] = contexto_kanban(itens, coluna)
+    elif visao == "calendario":
+        coluna, opcoes = coluna_escolhida(colunas, Coluna.Tipo.DATA, request.GET.get("coluna"))
+        contexto.update(coluna=coluna, colunas_opcao=opcoes)
+        if coluna:
+            contexto["coluna_data"] = coluna
+            contexto.update(contexto_calendario(itens, coluna, request.GET.get("mes")))
+    return render(request, "quadros/detalhe.html", contexto)
 
 
 def render_linha(request, item, colunas=None, pessoas=None):
