@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1>Olá, {{ user.first_name|default:user.username }}</h1>
+<p class="sutil">Estas são as empresas e filiais que você pode acessar.</p>
+{% for empresa, filiais in empresas.items %}
+<section class="cartao">
+  <h2>{{ empresa.nome }}</h2>
+  <ul class="filiais">
+    {% for filial in filiais %}
+    <li><strong>{{ filial.nome }}</strong>{% if filial.cidade %} <span class="sutil">· {{ filial.cidade }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<p class="cartao">Nenhuma filial liberada para você ainda. Fale com o administrador do grupo.</p>
+{% endfor %}
+{% endblock %}
