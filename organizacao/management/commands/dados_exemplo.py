@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from organizacao.models import Empresa, Filial, Usuario
+from quadros.models import Quadro
 
 SENHA = "teste12345"
 
@@ -32,6 +33,22 @@ class Command(BaseCommand):
             if criado:
                 usuario.set_password(SENHA)
                 usuario.save()
+        if not Quadro.objects.filter(nome="Manutenção", filial=filiais["Matriz"]).exists():
+            quadro = Quadro.criar_padrao(nome="Manutenção", filial=filiais["Matriz"])
+            status, responsavel, prazo, prioridade = quadro.colunas.all()
+            grupo = quadro.grupos.first()
+            gestor = Usuario.objects.get(username="gestor.matriz")
+            exemplos = [
+                ("Trocar lâmpadas do galpão", "Feito", "Baixa"),
+                ("Revisar extintores", "Fazendo", "Alta"),
+                ("Orçamento do ar-condicionado", "A fazer", "Média"),
+            ]
+            for nome, st, pr in exemplos:
+                item = grupo.itens.create(nome=nome)
+                item.definir_valor(status, st)
+                item.definir_valor(prioridade, pr)
+                item.definir_valor(responsavel, str(gestor.pk))
+                item.definir_valor(prazo, "2026-11-30")
         self.stdout.write(self.style.SUCCESS(
             f"Pronto. Usuários: diretoria, gestor.alfa, gestor.matriz, colaborador. Senha: {SENHA}"
         ))

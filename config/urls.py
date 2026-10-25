@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 
 from organizacao import views
 
@@ -16,5 +16,6 @@ urlpatterns = [
         auth_views.PasswordChangeView.as_view(success_url="/"),
         name="password_change",
     ),
+    path("quadros/", include("quadros.urls")),
     path("admin/", admin.site.urls),
 ]

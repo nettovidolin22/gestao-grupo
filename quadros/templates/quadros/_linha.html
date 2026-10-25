@@ -1,0 +1,12 @@
+<tr id="item-{{ item.pk }}">
+  <td class="col-nome">
+    <input name="nome" value="{{ item.nome }}" aria-label="Nome do item"
+           hx-post="{% url 'quadros:item_nome' item.pk %}" hx-trigger="change" hx-swap="none">
+  </td>
+  {% for coluna in colunas %}{% include "quadros/_celula.html" %}{% endfor %}
+  <td class="col-acao">
+    <button class="excluir" title="Excluir item" aria-label="Excluir item"
+            hx-post="{% url 'quadros:item_excluir' item.pk %}" hx-target="closest tr" hx-swap="outerHTML"
+            hx-confirm="Excluir “{{ item.nome }}”?">×</button>
+  </td>
+</tr>

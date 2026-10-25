@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cartao cartao-form">
+  {% if quadro %}<p class="sutil"><a href="{% url 'quadros:detalhe' quadro.pk %}">← {{ quadro.nome }}</a></p>{% endif %}
+  <h1>{{ titulo }}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="primario">Salvar</button>
+  </form>
+  {% if grupo %}
+  <form method="post" action="{% url 'quadros:grupo_excluir' quadro.pk grupo.pk %}" onsubmit="return confirm('Excluir o grupo e todos os itens dele?')">
+    {% csrf_token %}<button type="submit" class="perigo">Excluir grupo</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

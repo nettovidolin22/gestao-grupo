@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titulo %}{{ quadro.nome }} · Gestão do Grupo{% endblock %}
+{% block classe_main %}conteudo conteudo-largo{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <p class="sutil"><a href="{% url 'quadros:lista' %}">Quadros</a> · {{ quadro.filial }}</p>
+    <h1>{{ quadro.nome }}</h1>
+    {% if quadro.descricao %}<p class="sutil">{{ quadro.descricao }}</p>{% endif %}
+  </div>
+  {% if pode_gerenciar %}
+  <div class="acoes">
+    <a class="botao" href="{% url 'quadros:grupo_novo' quadro.pk %}">+ Grupo</a>
+    <a class="botao" href="{% url 'quadros:colunas' quadro.pk %}">Colunas</a>
+    <a class="botao" href="{% url 'quadros:editar' quadro.pk %}">Editar</a>
+    <a class="botao" href="{% url 'quadros:duplicar' quadro.pk %}">Duplicar</a>
+    <form method="post" action="{% url 'quadros:arquivar' quadro.pk %}" onsubmit="return confirm('Arquivar este quadro? Ele some da lista.')">
+      {% csrf_token %}<button type="submit">Arquivar</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% for grupo in grupos %}
+<section class="grupo cor-borda-{{ grupo.cor }}">
+  <h2 class="grupo-titulo texto-{{ grupo.cor }}">
+    {{ grupo.nome }}
+    {% if pode_gerenciar %}<a class="editar-grupo" href="{% url 'quadros:grupo_editar' quadro.pk grupo.pk %}">editar</a>{% endif %}
+  </h2>
+  <div class="tabela-rolagem">
+    <table class="tabela-quadro">
+      <thead>
+        <tr>
+          <th class="col-nome">Item</th>
+          {% for coluna in colunas %}<th>{{ coluna.nome }}</th>{% endfor %}
+          <th class="col-acao"></th>
+        </tr>
+      </thead>
+      <tbody id="itens-{{ grupo.pk }}">
+        {% for item in grupo.itens.all %}{% include "quadros/_linha.html" %}{% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="{{ colunas|length|add:2 }}">
+            <form method="post" action="{% url 'quadros:item_criar' grupo.pk %}"
+                  hx-post="{% url 'quadros:item_criar' grupo.pk %}" hx-target="#itens-{{ grupo.pk }}" hx-swap="beforeend"
+                  hx-on::after-request="if (event.detail.successful) this.reset()">
+              {% csrf_token %}
+              <input class="novo-item" name="nome" placeholder="+ Adicionar item" autocomplete="off">
+            </form>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}
