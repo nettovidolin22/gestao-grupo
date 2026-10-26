@@ -10,7 +10,7 @@ from .models import Coluna, Item, Quadro
 def resumo(usuario, empresa_id=None, filial_id=None):
     hoje = date.today()
     em_7_dias = hoje + timedelta(days=7)
-    quadros = Quadro.objects.visiveis_para(usuario).select_related("filial__empresa")
+    quadros = Quadro.objects.da_area_de(usuario).select_related("filial__empresa")
     if empresa_id:
         quadros = quadros.filter(filial__empresa_id=empresa_id)
     if filial_id:

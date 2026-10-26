@@ -106,6 +106,11 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024  # 10 MB
 # Requisições maiores que isto são recusadas antes de o arquivo ser gravado no disco.
 TAMANHO_MAXIMO_REQUISICAO = TAMANHO_MAXIMO_ANEXO + 1024 * 1024
+FILE_UPLOAD_HANDLERS = [
+    "config.uploads.LimiteUpload",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
 
 # Endereço do sistema, usado nos links dos e-mails.
 SITE_URL = os.environ.get("SITE_URL", "http://127.0.0.1:8000")
@@ -133,6 +138,13 @@ CSRF_COOKIE_HTTPONLY = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+# Domínios de e-mail aceitos no cadastro de usuários (os das empresas do grupo).
+DOMINIOS_EMAIL = [
+    d.strip().lower()
+    for d in os.environ.get("DOMINIOS_EMAIL", "gencau.com,balaiolab.com,titan.ind.br").split(",")
+    if d.strip()
+]
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "painel"

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Convidados · {{ quadro.nome }}{% endblock %}
+{% block conteudo %}
+<p class="sutil"><a href="{% url 'quadros:detalhe' quadro.pk %}">← {{ quadro.nome }}</a></p>
+<h1>Convidados</h1>
+<p class="sutil">Pessoas de outras filiais ou empresas do grupo que participam deste quadro. Elas veem o quadro inteiro, recebem tarefas, comentam e anexam arquivos, mas não mudam a estrutura (grupos, colunas, automações).</p>
+<div class="cartao">
+  <ul class="lista-quadros">
+    {% for convidado, descricao in convidados %}
+    <li class="regra">
+      <span>{{ descricao }}</span>
+      <span class="acoes">
+        <form method="post" action="{% url 'quadros:convidado_remover' quadro.pk convidado.pk %}" onsubmit="return confirm('Tirar esta pessoa do quadro? Ela deixa de ver o quadro.')">{% csrf_token %}<button type="submit" class="perigo">Remover</button></form>
+      </span>
+    </li>
+    {% empty %}
+    <li class="sutil">Ninguém de fora da filial foi convidado ainda.</li>
+    {% endfor %}
+  </ul>
+</div>
+<div class="cartao cartao-form">
+  <h2>Convidar pessoa</h2>
+  {% if candidatos %}
+  <form method="post">
+    {% csrf_token %}
+    <p>
+      <label for="id_usuario">Pessoa</label>
+      <select name="usuario" id="id_usuario" required>
+        <option value="">Escolha…</option>
+        {% for pessoa, descricao in candidatos %}<option value="{{ pessoa.pk }}">{{ descricao }}</option>{% endfor %}
+      </select>
+    </p>
+    <button type="submit" class="primario">Convidar</button>
+  </form>
+  <p class="sutil">A pessoa recebe um aviso no sistema e por e-mail.</p>
+  {% else %}
+  <p class="sutil">Todas as pessoas ativas do grupo já participam deste quadro.</p>
+  {% endif %}
+</div>
+{% endblock %}
