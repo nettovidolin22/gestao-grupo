@@ -1,0 +1,24 @@
+{% load quadros_extras %}{% with valor=item|valor_de:coluna %}
+<td class="celula celula-{{ coluna.tipo }}{% if coluna.tipo == 'status' and valor %} cor-{{ coluna|cor_de:valor }}{% endif %}"
+    hx-target="this" hx-swap="outerHTML">
+  {% url 'quadros:item_valor' item.pk coluna.pk as url_valor %}
+  {% if coluna.tipo == "status" %}
+    <select name="valor" hx-post="{{ url_valor }}" hx-trigger="change" aria-label="{{ coluna.nome }}">
+      <option value="">—</option>
+      {% for opcao in coluna.opcoes %}<option value="{{ opcao.nome }}"{% if opcao.nome == valor %} selected{% endif %}>{{ opcao.nome }}</option>{% endfor %}
+    </select>
+  {% elif coluna.tipo == "pessoa" %}
+    <select name="valor" hx-post="{{ url_valor }}" hx-trigger="change" aria-label="{{ coluna.nome }}">
+      <option value="">—</option>
+      {% for pessoa in pessoas %}<option value="{{ pessoa.pk }}"{% if pessoa.pk == valor %} selected{% endif %}>{{ pessoa.get_full_name|default:pessoa.username }}</option>{% endfor %}
+    </select>
+  {% elif coluna.tipo == "data" %}
+    <input type="date" name="valor" value="{{ valor|default:'' }}" hx-post="{{ url_valor }}" hx-trigger="change" aria-label="{{ coluna.nome }}">
+  {% elif coluna.tipo == "numero" %}
+    <input type="text" inputmode="decimal" name="valor" value="{{ valor|default:'' }}" hx-post="{{ url_valor }}" hx-trigger="change" aria-label="{{ coluna.nome }}">
+  {% else %}
+    <input type="text" name="valor" value="{{ valor|default:'' }}" hx-post="{{ url_valor }}" hx-trigger="change" aria-label="{{ coluna.nome }}">
+  {% endif %}
+  {% if erro %}<small class="erro">{{ erro }}</small>{% endif %}
+</td>
+{% endwith %}

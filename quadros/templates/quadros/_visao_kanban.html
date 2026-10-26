@@ -1,0 +1,32 @@
+{% load static quadros_extras %}
+{% if not coluna %}
+<p class="cartao">O Kanban organiza os itens por uma coluna de Status, e este quadro ainda não tem nenhuma.{% if pode_gerenciar %} <a href="{% url 'quadros:coluna_nova' quadro.pk %}">Criar uma coluna de Status</a>.{% endif %}</p>
+{% else %}
+{% include "quadros/_escolher_coluna.html" with rotulo="Agrupar por" %}
+<p class="sutil dica">Arraste os cartões entre as colunas para mudar o {{ coluna.nome|lower }}.</p>
+<div class="kanban" id="kanban">
+  {% for raia in raias %}
+  <section class="raia" data-valor="{{ raia.nome }}">
+    <header class="raia-titulo {% if raia.cor %}cor-{{ raia.cor }}{% else %}cor-sem{% endif %}">
+      <span>{{ raia.nome|default:"Sem status" }}</span>
+      <span class="contador">{{ raia.itens|length }}</span>
+    </header>
+    <ul class="raia-itens">
+      {% for item in raia.itens %}
+      <li class="cartao-item" draggable="true" data-url="{% url 'quadros:item_valor' item.pk coluna.pk %}">
+        <a class="titulo-cartao" href="{% url 'quadros:item_detalhe' item.pk %}" draggable="false">{{ item.nome }}</a>
+        <span class="sutil">{{ item.grupo.nome }}</span>
+        {% if coluna_pessoa %}{% with pessoa=item|valor_de:coluna_pessoa %}{% if pessoa %}<span class="detalhe-item">{{ coluna_pessoa.nome }}: {{ nomes_pessoas|chave:pessoa }}</span>{% endif %}{% endwith %}{% endif %}
+        {% if coluna_data %}{% with prazo=item|valor_de:coluna_data %}{% if prazo %}<span class="detalhe-item">{{ coluna_data.nome }}: {{ prazo|data_br }}</span>{% endif %}{% endwith %}{% endif %}
+        <select class="mover" aria-label="Mover {{ item.nome }} para">
+          <option value=""{% if not item|valor_de:coluna %} selected{% endif %}>Sem status</option>
+          {% for opcao in coluna.opcoes %}<option value="{{ opcao.nome }}"{% if opcao.nome == item|valor_de:coluna %} selected{% endif %}>{{ opcao.nome }}</option>{% endfor %}
+        </select>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+<script src="{% static 'js/kanban.js' %}" defer></script>
+{% endif %}

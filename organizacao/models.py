@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -51,6 +52,15 @@ class Usuario(AbstractUser):
 
     def clean(self):
         super().clean()
+        if self.email:
+            self.email = self.email.strip().lower()
+            dominios = settings.DOMINIOS_EMAIL
+            if dominios and self.email.rsplit("@", 1)[-1] not in dominios:
+                raise ValidationError(
+                    {"email": "Use o e-mail corporativo (" + ", ".join("@" + d for d in dominios) + ")."}
+                )
+            if Usuario.objects.filter(email__iexact=self.email).exclude(pk=self.pk).exists():
+                raise ValidationError({"email": "Esse e-mail já está em outro usuário."})
         if self.papel == self.Papel.ADMIN_GRUPO:
             return
         if not self.empresa:
@@ -64,6 +74,31 @@ class Usuario(AbstractUser):
     def ve_grupo_todo(self):
         return self.is_superuser or self.papel == self.Papel.ADMIN_GRUPO
 
+    def has_perm(self, perm, obj=None):
+        # O administrador do grupo (com acesso a Cadastros) gerencia tudo, como um superusuário.
+        if self.is_active and self.is_staff and self.papel == self.Papel.ADMIN_GRUPO:
+            return True
+        return super().has_perm(perm, obj)
+
+    def has_module_perms(self, app_label):
+        if self.is_active and self.is_staff and self.papel == self.Papel.ADMIN_GRUPO:
+            return True
+        return super().has_module_perms(app_label)
+
+    @property
+    def gerencia_usuarios(self):
+        """Só o administrador do grupo (TI) cadastra logins e senhas."""
+        return self.ve_grupo_todo
+
+    def usuarios_gerenciaveis(self):
+        """Usuários que esta pessoa pode ver e editar na tela Usuários (nunca ela mesma)."""
+        if not self.gerencia_usuarios:
+            return Usuario.objects.none()
+        qs = Usuario.objects.exclude(pk=self.pk)
+        if not self.is_superuser:
+            qs = qs.exclude(is_superuser=True)
+        return qs
+
     def empresas_visiveis(self):
         if self.ve_grupo_todo:
             return Empresa.objects.all()
@@ -76,3 +111,15 @@ class Usuario(AbstractUser):
         if self.papel == self.Papel.GESTOR_EMPRESA:
             return Filial.objects.filter(empresa_id=self.empresa_id)
         return Filial.objects.filter(pk=self.filial_id)
+
+
+class TentativaLogin(models.Model):
+    """Senha errada no login. Muitas seguidas bloqueiam o usuário por alguns minutos."""
+
+    username = models.CharField(max_length=150, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    criada_em = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "tentativa de login"
+        verbose_name_plural = "tentativas de login"

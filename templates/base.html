@@ -5,20 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Gestão do Grupo{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/htmx-2.0.4.min.js' %}" defer></script>
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
   <header class="topo">
     <a class="marca" href="{% url 'painel' %}">Gestão do Grupo</a>
     <nav>
+      <a href="{% url 'quadros:lista' %}">Quadros</a>
+      {% if user.ve_grupo_todo or user.papel != "colaborador" %}<a href="{% url 'quadros:painel_gerencial' %}">Painel</a>{% endif %}
+      {% if user.gerencia_usuarios %}<a href="{% url 'usuarios' %}">Usuários</a>{% endif %}
+      <a href="{% url 'notificacoes:lista' %}" class="sino">Notificações{% if notificacoes_nao_lidas %} <span class="bolinha">{{ notificacoes_nao_lidas }}</span>{% endif %}</a>
       <span>{{ user.get_full_name|default:user.username }} · {{ user.get_papel_display }}</span>
-      {% if user.is_staff %}<a href="{% url 'admin:index' %}">Cadastros</a>{% endif %}
+      {% if user.is_staff and user.ve_grupo_todo %}<a href="{% url 'admin:index' %}">Cadastros</a>{% endif %}
       <a href="{% url 'password_change' %}">Trocar senha</a>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Sair</button></form>
     </nav>
   </header>
   {% endif %}
-  <main class="conteudo">
+  <main class="{% block classe_main %}conteudo{% endblock %}">
+    {% for m in messages %}<p class="aviso aviso-{{ m.tags }}">{{ m }}</p>{% endfor %}
     {% block conteudo %}{% endblock %}
   </main>
 </body>

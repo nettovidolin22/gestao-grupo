@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Quadros · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Quadros</h1>
+  {% if pode_gerenciar %}
+  <div class="acoes">
+    <a class="botao" href="{% url 'quadros:importar' %}">Importar do Monday</a>
+    <a class="botao primario" href="{% url 'quadros:novo' %}">+ Novo quadro</a>
+  </div>
+  {% endif %}
+</div>
+{% for filial, quadros in por_filial %}
+<section class="cartao">
+  <h2>{{ filial }}</h2>
+  <ul class="lista-quadros">
+    {% for quadro in quadros %}
+    <li><a href="{% url 'quadros:detalhe' quadro.pk %}">{{ quadro.nome }}</a>{% if quadro.so_convidado %} <span class="etiqueta convite">convidado</span>{% endif %}{% if quadro.descricao %} <span class="sutil">· {{ quadro.descricao|truncatechars:80 }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<p class="cartao">Nenhum quadro ainda.{% if pode_gerenciar %} Crie o primeiro em “Novo quadro”.{% endif %}</p>
+{% endfor %}
+{% endblock %}
