@@ -1,0 +1,12 @@
+{% if colunas_opcao|length > 1 %}
+<form method="get" class="escolher-coluna">
+  <input type="hidden" name="visao" value="{{ visao }}">
+  {% if mes_texto %}<input type="hidden" name="mes" value="{{ mes_texto }}">{% endif %}
+  <label>{{ rotulo }}
+    <select name="coluna" onchange="this.form.submit()">
+      {% for c in colunas_opcao %}<option value="{{ c.pk }}"{% if c.pk == coluna.pk %} selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+    </select>
+  </label>
+  <noscript><button type="submit">Ver</button></noscript>
+</form>
+{% endif %}

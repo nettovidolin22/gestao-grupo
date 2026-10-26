@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Notificações · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Notificações</h1>
+  {% if notificacoes_nao_lidas %}
+  <form method="post" action="{% url 'notificacoes:marcar_todas' %}">{% csrf_token %}<button type="submit">Marcar todas como lidas</button></form>
+  {% endif %}
+</div>
+<div class="cartao">
+  <ul class="lista-notificacoes">
+    {% for n in notificacoes %}
+    <li class="{% if not n.lida %}nao-lida{% endif %}">
+      <a href="{% url 'notificacoes:abrir' n.pk %}">{{ n.texto }}</a>
+      <span class="sutil">{{ n.criada_em|timesince }} atrás</span>
+    </li>
+    {% empty %}
+    <li class="sutil">Nenhuma notificação.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

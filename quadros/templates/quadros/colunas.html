@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Colunas · {{ quadro.nome }}{% endblock %}
+{% block conteudo %}
+<p class="sutil"><a href="{% url 'quadros:detalhe' quadro.pk %}">← {{ quadro.nome }}</a></p>
+<div class="cabecalho">
+  <h1>Colunas</h1>
+  <a class="botao primario" href="{% url 'quadros:coluna_nova' quadro.pk %}">+ Nova coluna</a>
+</div>
+<div class="cartao">
+  <table class="tabela-simples">
+    <thead><tr><th>Ordem</th><th>Nome</th><th>Tipo</th><th>Etiquetas</th><th></th></tr></thead>
+    <tbody>
+      {% for coluna in colunas %}
+      <tr>
+        <td>{{ coluna.ordem }}</td>
+        <td>{{ coluna.nome }}</td>
+        <td>{{ coluna.get_tipo_display }}</td>
+        <td>{% for o in coluna.opcoes %}<span class="etiqueta cor-{{ o.cor }}">{{ o.nome }}</span> {% endfor %}</td>
+        <td><div class="acoes">
+          <a href="{% url 'quadros:coluna_editar' quadro.pk coluna.pk %}">Editar</a>
+          <form method="post" action="{% url 'quadros:coluna_excluir' quadro.pk coluna.pk %}" onsubmit="return confirm('Excluir a coluna e os valores dela em todos os itens?')">
+            {% csrf_token %}<button type="submit" class="perigo">Excluir</button>
+          </form>
+        </div></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Nenhuma coluna.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
