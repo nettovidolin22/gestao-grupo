@@ -72,6 +72,12 @@ Menu **Usuários**, só para o administrador do grupo (TI): lista com busca, cad
 - Sem `DEBUG=1`, o sistema exige uma `SECRET_KEY` de 50+ caracteres, força HTTPS (com HSTS) e usa cookies seguros
 - `dados_exemplo` (senhas fracas) só roda com `DEBUG=1`
 
+## Antes de publicar
+
+- Anexos ficam na pasta `MEDIA_ROOT`. Em hospedagem com disco temporário (como o Render), aponte `MEDIA_ROOT` para um disco persistente, senão os anexos somem a cada atualização.
+- Defina `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`, `SITE_URL` e o e-mail (`EMAIL_HOST` e afins) no ambiente.
+- Agende `python manage.py avisar_prazos` uma vez por dia.
+
 ## Rodar no seu computador (Windows)
 
 No VS Code, abra a pasta do projeto e use o terminal (menu **Terminal > Novo Terminal**):
