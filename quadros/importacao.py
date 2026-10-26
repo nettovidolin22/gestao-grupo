@@ -16,6 +16,7 @@ Cada grupo vira um Grupo, e o tipo de cada coluna é adivinhado pelos valores.
 
 import csv
 import io
+import zipfile
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from itertools import cycle
@@ -27,6 +28,9 @@ from .models import CORES, Coluna, Quadro
 
 TAMANHO_MAXIMO = 5 * 1024 * 1024
 LINHAS_MAXIMAS = 5000
+COLUNAS_MAXIMAS = 100
+# Um .xlsx é um zip: limita o tamanho descompactado para barrar "bombas de zip".
+DESCOMPACTADO_MAXIMO = 50 * 1024 * 1024
 CABECALHOS_NOME = {"name", "nome", "item", "itens", "tarefa", "tarefas"}
 COLUNAS_IGNORADAS = {"subitems", "subitens", "item id", "id do item"}
 NOMES_STATUS = {"status", "prioridade", "priority", "estado", "situação", "situacao", "fase"}
@@ -54,10 +58,22 @@ def ler_linhas(arquivo):
         from openpyxl import load_workbook
 
         try:
+            with zipfile.ZipFile(arquivo) as pacote:
+                descompactado = sum(info.file_size for info in pacote.infolist())
+        except zipfile.BadZipFile:
+            raise ErroImportacao("Não consegui abrir o Excel. Exporte de novo no formato .xlsx.")
+        if descompactado > DESCOMPACTADO_MAXIMO:
+            raise ErroImportacao("O Excel é grande demais por dentro. Divida a planilha em partes.")
+        arquivo.seek(0)
+        try:
             planilha = load_workbook(arquivo, read_only=True, data_only=True).worksheets[0]
+            linhas = []
+            for linha in planilha.iter_rows(values_only=True, max_col=COLUNAS_MAXIMAS):
+                linhas.append(list(linha))
+                if len(linhas) > LINHAS_MAXIMAS:
+                    break
         except Exception:
             raise ErroImportacao("Não consegui abrir o Excel. Exporte de novo no formato .xlsx.")
-        linhas = [list(linha) for linha in planilha.iter_rows(values_only=True)]
     elif nome.endswith(".csv"):
         bruto = arquivo.read()
         for codificacao in ("utf-8-sig", "latin-1"):
@@ -70,7 +86,14 @@ def ler_linhas(arquivo):
             dialeto = csv.Sniffer().sniff(texto[:4096], delimiters=",;\t")
         except csv.Error:
             dialeto = csv.excel
-        linhas = list(csv.reader(io.StringIO(texto), dialeto))
+        linhas = []
+        try:
+            for linha in csv.reader(io.StringIO(texto), dialeto):
+                linhas.append(linha[:COLUNAS_MAXIMAS])
+                if len(linhas) > LINHAS_MAXIMAS:
+                    break
+        except csv.Error:
+            raise ErroImportacao("Não consegui ler o CSV. Confira se o arquivo não está corrompido.")
     else:
         raise ErroImportacao("Envie um arquivo .xlsx ou .csv.")
     if len(linhas) > LINHAS_MAXIMAS:

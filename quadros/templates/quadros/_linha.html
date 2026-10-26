@@ -6,8 +6,10 @@
   {% for coluna in colunas %}{% include "quadros/_celula.html" %}{% endfor %}
   <td class="col-acao">
     <a class="abrir-item" href="{% url 'quadros:item_detalhe' item.pk %}" title="Abrir comentários, anexos e histórico" aria-label="Abrir {{ item.nome }}">↗</a>
+    {% if pode_gerenciar or item.criado_por_id == user.pk %}
     <button class="excluir" title="Excluir item" aria-label="Excluir item"
             hx-post="{% url 'quadros:item_excluir' item.pk %}" hx-target="closest tr" hx-swap="outerHTML"
             hx-confirm="Excluir “{{ item.nome }}”?">×</button>
+    {% endif %}
   </td>
 </tr>

@@ -47,6 +47,16 @@ Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.
 
+## Segurança
+
+- Depois de 5 senhas erradas seguidas, o usuário fica bloqueado por 15 minutos
+- A sessão expira após 12 horas sem uso
+- A tela **Cadastros** é só do administrador do grupo; gestores não entram nela
+- Colaborador só exclui itens que ele mesmo criou; gestores excluem qualquer um
+- Envios acima de 11 MB são recusados na entrada; o importador limita linhas, colunas e o tamanho descompactado do Excel
+- Sem `DEBUG=1`, o sistema exige uma `SECRET_KEY` de 50+ caracteres, força HTTPS (com HSTS) e usa cookies seguros
+- `dados_exemplo` (senhas fracas) só roda com `DEBUG=1`
+
 ## Rodar no seu computador (Windows)
 
 No VS Code, abra a pasta do projeto e use o terminal (menu **Terminal > Novo Terminal**):

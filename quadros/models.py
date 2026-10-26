@@ -152,7 +152,7 @@ class Coluna(models.Model):
                 raise ValidationError("Opção inválida.")
             return bruto
         if self.tipo == self.Tipo.PESSOA:
-            if not self.quadro.pessoas().filter(pk=bruto).exists():
+            if not bruto.isdigit() or not self.quadro.pessoas().filter(pk=bruto).exists():
                 raise ValidationError("Pessoa inválida.")
             return int(bruto)
         if self.tipo == self.Tipo.DATA:

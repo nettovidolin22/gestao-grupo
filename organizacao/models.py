@@ -76,3 +76,15 @@ class Usuario(AbstractUser):
         if self.papel == self.Papel.GESTOR_EMPRESA:
             return Filial.objects.filter(empresa_id=self.empresa_id)
         return Filial.objects.filter(pk=self.filial_id)
+
+
+class TentativaLogin(models.Model):
+    """Senha errada no login. Muitas seguidas bloqueiam o usuário por alguns minutos."""
+
+    username = models.CharField(max_length=150, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    criada_em = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "tentativa de login"
+        verbose_name_plural = "tentativas de login"

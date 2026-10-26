@@ -137,6 +137,8 @@ def contexto_calendario(itens, coluna, mes_texto):
     try:
         ano, mes = (int(p) for p in mes_texto.split("-"))
         primeiro = date(ano, mes, 1)
+        if not 1900 <= ano <= 2999:
+            raise ValueError
     except (ValueError, AttributeError):
         primeiro = hoje.replace(day=1)
     por_dia, sem_data = {}, []
@@ -212,6 +214,7 @@ def render_linha(request, item, colunas=None, pessoas=None):
             "item": item,
             "colunas": colunas if colunas is not None else list(quadro.colunas.all()),
             "pessoas": pessoas if pessoas is not None else list(quadro.pessoas()),
+            "pode_gerenciar": pode_gerenciar(request.user),
         },
     )
 
@@ -278,6 +281,8 @@ def item_valor(request, pk, coluna_pk):
 @require_POST
 def item_excluir(request, pk):
     item = item_do_usuario(request.user, pk)
+    if item.criado_por_id != request.user.pk and not pode_gerenciar(request.user):
+        raise PermissionDenied("Só quem criou o item ou um gestor pode excluí-lo.")
     quadro_pk = item.grupo.quadro_id
     item.delete()
     if htmx(request):
@@ -563,8 +568,10 @@ def painel_gerencial(request):
     exigir_gestor(request.user)
     empresas = request.user.empresas_visiveis()
     filiais = request.user.filiais_visiveis().select_related("empresa")
-    empresa_id = request.GET.get("empresa") or None
-    filial_id = request.GET.get("filial") or None
+    empresa_id = request.GET.get("empresa", "")
+    filial_id = request.GET.get("filial", "")
+    empresa_id = empresa_id if empresa_id.isdigit() else None
+    filial_id = filial_id if filial_id.isdigit() else None
     if empresa_id and not empresas.filter(pk=empresa_id).exists():
         empresa_id = None
     if filial_id and not filiais.filter(pk=filial_id).exists():

@@ -4,7 +4,7 @@
 <div class="cartao cartao-login">
   <h1>Gestão do Grupo</h1>
   <p class="sutil">Entre com seu usuário e senha.</p>
-  {% if form.errors %}<p class="erro">Usuário ou senha incorretos.</p>{% endif %}
+  {% for erro in form.non_field_errors %}<p class="erro">{{ erro }}</p>{% endfor %}
   <form method="post">
     {% csrf_token %}
     <label>Usuário <input type="text" name="username" autofocus required></label>

@@ -4,6 +4,15 @@ from django.contrib.auth.admin import UserAdmin
 from .models import Empresa, Filial, Usuario
 
 
+def so_administradores(request):
+    """Cadastros (admin) só para o administrador do grupo: ali se vê e muda tudo."""
+    usuario = request.user
+    return usuario.is_active and usuario.is_staff and usuario.ve_grupo_todo
+
+
+admin.site.has_permission = so_administradores
+
+
 class FilialInline(admin.TabularInline):
     model = Filial
     extra = 0
@@ -30,6 +39,12 @@ class UsuarioAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
         ("Acesso no grupo", {"fields": ("papel", "empresa", "filial")}),
     )
+    def get_readonly_fields(self, request, obj=None):
+        # Só um superusuário cria outro superusuário ou dá permissões avulsas.
+        if request.user.is_superuser:
+            return super().get_readonly_fields(request, obj)
+        return ("is_superuser", "user_permissions", "groups", "last_login", "date_joined")
+
     add_fieldsets = UserAdmin.add_fieldsets + (
         ("Acesso no grupo", {"fields": ("first_name", "email", "papel", "empresa", "filial")}),
     )
