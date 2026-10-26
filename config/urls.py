@@ -3,19 +3,25 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from organizacao import views
+from organizacao.forms import LoginForm
 
 admin.site.site_header = "Gestão do Grupo"
 admin.site.site_title = "Gestão do Grupo"
 
 urlpatterns = [
     path("", views.painel, name="painel"),
-    path("entrar/", auth_views.LoginView.as_view(), name="login"),
+    path("entrar/", auth_views.LoginView.as_view(form_class=LoginForm), name="login"),
     path("sair/", auth_views.LogoutView.as_view(), name="logout"),
     path(
         "senha/alterar/",
         auth_views.PasswordChangeView.as_view(success_url="/"),
         name="password_change",
     ),
+    path("usuarios/", views.usuarios, name="usuarios"),
+    path("usuarios/novo/", views.usuario_form, name="usuario_novo"),
+    path("usuarios/<int:pk>/", views.usuario_form, name="usuario_editar"),
+    path("usuarios/<int:pk>/senha/", views.usuario_senha, name="usuario_senha"),
     path("quadros/", include("quadros.urls")),
+    path("notificacoes/", include("notificacoes.urls")),
     path("admin/", admin.site.urls),
 ]

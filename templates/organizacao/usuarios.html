@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Usuários · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Usuários</h1>
+  <div class="acoes">
+    <a class="botao primario" href="{% url 'usuario_novo' %}">+ Novo usuário</a>
+  </div>
+</div>
+<form method="get" class="busca">
+  <input type="search" name="q" value="{{ busca }}" placeholder="Buscar por nome, usuário ou e-mail" aria-label="Buscar usuário">
+  <button type="submit" class="botao">Buscar</button>
+</form>
+<section class="cartao">
+  <table class="tabela-simples">
+    <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Empresa / filial</th><th>Situação</th><th></th></tr></thead>
+    <tbody>
+    {% for u in usuarios %}
+      <tr{% if not u.is_active %} class="inativo"{% endif %}>
+        <td>{{ u.get_full_name|default:"—" }}{% if u.email %}<br><span class="sutil">{{ u.email }}</span>{% endif %}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.get_papel_display }}</td>
+        <td>{% if u.filial %}{{ u.filial }}{% elif u.empresa %}{{ u.empresa }}{% else %}Todo o grupo{% endif %}</td>
+        <td>{% if u.is_active %}Ativo{% else %}<span class="erro">Bloqueado</span>{% endif %}</td>
+        <td class="acoes-linha"><a href="{% url 'usuario_editar' u.pk %}">Editar</a> · <a href="{% url 'usuario_senha' u.pk %}">Nova senha</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="sutil">{% if busca %}Ninguém encontrado com “{{ busca }}”.{% else %}Nenhum usuário cadastrado ainda.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
