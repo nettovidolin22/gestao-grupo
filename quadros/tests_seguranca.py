@@ -122,3 +122,14 @@ class SegurancaTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command("dados_exemplo")
+
+    def test_nome_com_quebra_de_linha_ainda_manda_email(self):
+        from django.core import mail
+
+        from notificacoes.servicos import notificar
+
+        self.colab.email = "colab@exemplo.com"
+        self.colab.save()
+        notificar(self.colab, "Item\ncom quebra", autor=self.gestor)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("\n", mail.outbox[0].subject)
