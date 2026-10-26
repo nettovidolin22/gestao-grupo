@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -51,6 +52,15 @@ class Usuario(AbstractUser):
 
     def clean(self):
         super().clean()
+        if self.email:
+            self.email = self.email.strip().lower()
+            dominios = settings.DOMINIOS_EMAIL
+            if dominios and self.email.rsplit("@", 1)[-1] not in dominios:
+                raise ValidationError(
+                    {"email": "Use o e-mail corporativo (" + ", ".join("@" + d for d in dominios) + ")."}
+                )
+            if Usuario.objects.filter(email__iexact=self.email).exclude(pk=self.pk).exists():
+                raise ValidationError({"email": "Esse e-mail já está em outro usuário."})
         if self.papel == self.Papel.ADMIN_GRUPO:
             return
         if not self.empresa:

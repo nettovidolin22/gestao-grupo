@@ -15,7 +15,7 @@
   <h2>{{ filial }}</h2>
   <ul class="lista-quadros">
     {% for quadro in quadros %}
-    <li><a href="{% url 'quadros:detalhe' quadro.pk %}">{{ quadro.nome }}</a>{% if quadro.descricao %} <span class="sutil">· {{ quadro.descricao|truncatechars:80 }}</span>{% endif %}</li>
+    <li><a href="{% url 'quadros:detalhe' quadro.pk %}">{{ quadro.nome }}</a>{% if quadro.so_convidado %} <span class="etiqueta convite">convidado</span>{% endif %}{% if quadro.descricao %} <span class="sutil">· {{ quadro.descricao|truncatechars:80 }}</span>{% endif %}</li>
     {% endfor %}
   </ul>
 </section>

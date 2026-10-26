@@ -4,6 +4,8 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 from organizacao.models import Filial
 
@@ -23,8 +25,16 @@ PRIORIDADE_PADRAO = [
 
 
 class QuadroQuerySet(models.QuerySet):
-    def visiveis_para(self, usuario):
+    def da_area_de(self, usuario):
+        """Quadros das filiais do usuário (sem os que ele só foi convidado)."""
         return self.filter(filial__in=usuario.filiais_visiveis(), arquivado=False)
+
+    def visiveis_para(self, usuario):
+        """Quadros das filiais do usuário mais os quadros para os quais foi convidado."""
+        return self.filter(
+            models.Q(filial__in=usuario.filiais_visiveis()) | models.Q(convidados=usuario),
+            arquivado=False,
+        ).distinct()
 
 
 class Quadro(models.Model):
@@ -36,6 +46,12 @@ class Quadro(models.Model):
     )
     criado_em = models.DateTimeField(auto_now_add=True)
     arquivado = models.BooleanField(default=False)
+    convidados = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="quadros_convidado",
+        help_text="Pessoas de outras filiais ou empresas que participam deste quadro.",
+    )
 
     objects = QuadroQuerySet.as_manager()
 
@@ -50,11 +66,14 @@ class Quadro(models.Model):
         from organizacao.models import Usuario
 
         P = Usuario.Papel
-        return Usuario.objects.filter(is_active=True).filter(
+        filtro = (
             models.Q(papel=P.ADMIN_GRUPO)
             | models.Q(papel=P.GESTOR_EMPRESA, empresa_id=self.filial.empresa_id)
             | models.Q(filial=self.filial)
-        ).order_by("first_name", "username")
+        )
+        if self.pk:
+            filtro |= models.Q(pk__in=self.convidados.values("pk"))
+        return Usuario.objects.filter(is_active=True).filter(filtro).order_by("first_name", "username")
 
     @classmethod
     def criar_padrao(cls, **campos):
@@ -144,9 +163,12 @@ class Coluna(models.Model):
             return bruto[:500]
         if self.tipo == self.Tipo.NUMERO:
             try:
-                return str(Decimal(bruto.replace(",", ".")))
+                numero = Decimal(bruto.replace(",", "."))
             except InvalidOperation:
                 raise ValidationError("Informe um número.")
+            if not numero.is_finite():  # "NaN" e "Infinity" passam pelo Decimal
+                raise ValidationError("Informe um número.")
+            return str(numero)
         if self.tipo == self.Tipo.STATUS:
             if bruto not in [o["nome"] for o in self.opcoes]:
                 raise ValidationError("Opção inválida.")
@@ -185,11 +207,15 @@ class Item(models.Model):
 
     def definir_valor(self, coluna, bruto):
         valor = coluna.limpar_valor(bruto)
-        if valor is None:
-            self.valores.pop(str(coluna.pk), None)
-        else:
-            self.valores[str(coluna.pk)] = valor
-        self.save(update_fields=["valores"])
+        with transaction.atomic():
+            # Relê os valores travando o item: duas pessoas mudando colunas diferentes
+            # ao mesmo tempo não apagam a mudança uma da outra.
+            self.valores = Item.objects.select_for_update().values_list("valores", flat=True).get(pk=self.pk)
+            if valor is None:
+                self.valores.pop(str(coluna.pk), None)
+            else:
+                self.valores[str(coluna.pk)] = valor
+            self.save(update_fields=["valores"])
 
 
 def caminho_anexo(anexo, nome_arquivo):
@@ -279,3 +305,11 @@ class Automacao(models.Model):
         if self.acao == self.Acao.MOVER_GRUPO and self.grupo:
             return f"mover para o grupo {self.grupo.nome}"
         return self.get_acao_display().lower()
+
+
+@receiver(post_delete, sender=Anexo)
+def apagar_arquivo_do_anexo(sender, instance, **kwargs):
+    """Excluir item, grupo ou quadro apaga os anexos do disco também, não só do banco."""
+    if instance.arquivo:
+        arquivo = instance.arquivo
+        transaction.on_commit(lambda: arquivo.delete(save=False))

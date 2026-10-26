@@ -39,6 +39,11 @@ class UsuarioAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
         ("Acesso no grupo", {"fields": ("papel", "empresa", "filial")}),
     )
+    def get_queryset(self, request):
+        # O administrador do grupo não vê nem troca a senha de um superusuário.
+        qs = super().get_queryset(request)
+        return qs if request.user.is_superuser else qs.filter(is_superuser=False)
+
     def get_readonly_fields(self, request, obj=None):
         # Só um superusuário cria outro superusuário ou dá permissões avulsas.
         if request.user.is_superuser:
