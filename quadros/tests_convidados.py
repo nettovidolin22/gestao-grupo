@@ -44,7 +44,7 @@ class ConvidadosTests(TestCase):
     def test_convidado_ve_o_quadro_e_recebe_aviso(self):
         self.convidar()
         pagina = self.client.get(reverse("quadros:convidados", args=[self.quadro.pk]))
-        self.assertContains(pagina, "externo · Fábrica")
+        self.assertContains(pagina, "externo · Titan - Fábrica")
         self.assertTrue(Notificacao.objects.filter(usuario=self.externo).exists())
         self.client.force_login(self.externo)
         self.assertContains(self.client.get(reverse("quadros:lista")), "convidado")
