@@ -47,6 +47,18 @@ Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.
 
+## Usuários
+
+Menu **Usuários** (gestores e administrador): lista com busca, cadastro, edição, bloqueio (desmarcar Ativo) e nova senha.
+
+| Quem cadastra | Pode criar | Onde |
+| --- | --- | --- |
+| Administrador do grupo | Qualquer perfil | Qualquer empresa e filial |
+| Gestor de empresa | Gestor de filial e colaborador | Filiais da própria empresa |
+| Gestor de filial | Colaborador | A própria filial |
+
+Ninguém edita a si mesmo nem alguém de perfil igual ou maior por essa tela. A regra fica em `Usuario.usuarios_gerenciaveis()`.
+
 ## Segurança
 
 - Depois de 5 senhas erradas seguidas, o usuário fica bloqueado por 15 minutos

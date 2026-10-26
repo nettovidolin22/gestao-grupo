@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Usuários · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cartao cartao-form">
+  <p class="sutil"><a href="{% url 'usuarios' %}">← Usuários</a></p>
+  <h1>{% if titulo %}{{ titulo }}{% elif usuario %}Editar {{ usuario.username }}{% else %}Novo usuário{% endif %}</h1>
+  {% if not titulo %}<p class="sutil">Administrador do grupo vê tudo. Gestor de empresa vê as filiais da empresa. Gestor de filial e colaborador veem só a própria filial.</p>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="primario">Salvar</button>
+  </form>
+</div>
+{% endblock %}

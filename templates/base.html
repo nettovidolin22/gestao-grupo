@@ -14,6 +14,7 @@
     <nav>
       <a href="{% url 'quadros:lista' %}">Quadros</a>
       {% if user.ve_grupo_todo or user.papel != "colaborador" %}<a href="{% url 'quadros:painel_gerencial' %}">Painel</a>{% endif %}
+      {% if user.gerencia_usuarios %}<a href="{% url 'usuarios' %}">Usuários</a>{% endif %}
       <a href="{% url 'notificacoes:lista' %}" class="sino">Notificações{% if notificacoes_nao_lidas %} <span class="bolinha">{{ notificacoes_nao_lidas }}</span>{% endif %}</a>
       <span>{{ user.get_full_name|default:user.username }} · {{ user.get_papel_display }}</span>
       {% if user.is_staff and user.ve_grupo_todo %}<a href="{% url 'admin:index' %}">Cadastros</a>{% endif %}
