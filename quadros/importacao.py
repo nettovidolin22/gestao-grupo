@@ -182,9 +182,10 @@ def como_numero(valor):
     if isinstance(valor, date):
         return None
     try:
-        return Decimal(str(valor).replace(".", "").replace(",", ".") if "," in str(valor) else str(valor))
+        numero = Decimal(str(valor).replace(".", "").replace(",", ".") if "," in str(valor) else str(valor))
     except InvalidOperation:
         return None
+    return numero if numero.is_finite() else None
 
 
 def mapa_pessoas(filial):
