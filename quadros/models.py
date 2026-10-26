@@ -4,6 +4,8 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 from organizacao.models import Filial
 
@@ -161,9 +163,12 @@ class Coluna(models.Model):
             return bruto[:500]
         if self.tipo == self.Tipo.NUMERO:
             try:
-                return str(Decimal(bruto.replace(",", ".")))
+                numero = Decimal(bruto.replace(",", "."))
             except InvalidOperation:
                 raise ValidationError("Informe um número.")
+            if not numero.is_finite():  # "NaN" e "Infinity" passam pelo Decimal
+                raise ValidationError("Informe um número.")
+            return str(numero)
         if self.tipo == self.Tipo.STATUS:
             if bruto not in [o["nome"] for o in self.opcoes]:
                 raise ValidationError("Opção inválida.")
@@ -202,11 +207,15 @@ class Item(models.Model):
 
     def definir_valor(self, coluna, bruto):
         valor = coluna.limpar_valor(bruto)
-        if valor is None:
-            self.valores.pop(str(coluna.pk), None)
-        else:
-            self.valores[str(coluna.pk)] = valor
-        self.save(update_fields=["valores"])
+        with transaction.atomic():
+            # Relê os valores travando o item: duas pessoas mudando colunas diferentes
+            # ao mesmo tempo não apagam a mudança uma da outra.
+            self.valores = Item.objects.select_for_update().values_list("valores", flat=True).get(pk=self.pk)
+            if valor is None:
+                self.valores.pop(str(coluna.pk), None)
+            else:
+                self.valores[str(coluna.pk)] = valor
+            self.save(update_fields=["valores"])
 
 
 def caminho_anexo(anexo, nome_arquivo):
@@ -296,3 +305,11 @@ class Automacao(models.Model):
         if self.acao == self.Acao.MOVER_GRUPO and self.grupo:
             return f"mover para o grupo {self.grupo.nome}"
         return self.get_acao_display().lower()
+
+
+@receiver(post_delete, sender=Anexo)
+def apagar_arquivo_do_anexo(sender, instance, **kwargs):
+    """Excluir item, grupo ou quadro apaga os anexos do disco também, não só do banco."""
+    if instance.arquivo:
+        arquivo = instance.arquivo
+        transaction.on_commit(lambda: arquivo.delete(save=False))
