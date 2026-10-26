@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Automações · {{ quadro.nome }}{% endblock %}
+{% block conteudo %}
+<p class="sutil"><a href="{% url 'quadros:detalhe' quadro.pk %}">← {{ quadro.nome }}</a></p>
+<h1>Automações</h1>
+<p class="sutil">Regras que rodam sozinhas quando alguém muda uma coluna de Status. Prazos vencendo já são avisados todo dia, sem precisar de regra.</p>
+<div class="cartao">
+  <ul class="lista-quadros">
+    {% for regra in regras %}
+    <li class="regra{% if not regra.ativa %} inativa{% endif %}">
+      <span>Quando <strong>{{ regra.coluna.nome }}</strong> mudar para <strong>{{ regra.valor }}</strong>: {{ regra.descricao_acao }}{% if not regra.ativa %} <span class="sutil">(pausada)</span>{% endif %}</span>
+      <span class="acoes">
+        <form method="post" action="{% url 'quadros:automacao_alternar' quadro.pk regra.pk %}">{% csrf_token %}<button type="submit">{% if regra.ativa %}Pausar{% else %}Ativar{% endif %}</button></form>
+        <form method="post" action="{% url 'quadros:automacao_excluir' quadro.pk regra.pk %}" onsubmit="return confirm('Excluir esta automação?')">{% csrf_token %}<button type="submit" class="perigo">Excluir</button></form>
+      </span>
+    </li>
+    {% empty %}
+    <li class="sutil">Nenhuma automação ainda.</li>
+    {% endfor %}
+  </ul>
+</div>
+<div class="cartao cartao-form">
+  <h2>Nova automação</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="primario">Criar automação</button>
+  </form>
+</div>
+{% endblock %}

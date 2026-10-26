@@ -12,6 +12,8 @@
   <div class="acoes">
     <a class="botao" href="{% url 'quadros:grupo_novo' quadro.pk %}">+ Grupo</a>
     <a class="botao" href="{% url 'quadros:colunas' quadro.pk %}">Colunas</a>
+    <a class="botao" href="{% url 'quadros:automacoes' quadro.pk %}">Automações</a>
+    <a class="botao" href="{% url 'quadros:convidados' quadro.pk %}">Convidados</a>
     <a class="botao" href="{% url 'quadros:editar' quadro.pk %}">Editar</a>
     <a class="botao" href="{% url 'quadros:duplicar' quadro.pk %}">Duplicar</a>
     <form method="post" action="{% url 'quadros:arquivar' quadro.pk %}" onsubmit="return confirm('Arquivar este quadro? Ele some da lista.')">

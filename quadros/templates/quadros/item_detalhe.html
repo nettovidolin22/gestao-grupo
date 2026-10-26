@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block titulo %}{{ item.nome }} · {{ quadro.nome }}{% endblock %}
+{% block classe_main %}conteudo conteudo-largo{% endblock %}
+{% block conteudo %}
+<p class="sutil"><a href="{% url 'quadros:detalhe' quadro.pk %}">← {{ quadro.nome }}</a> · {{ item.grupo.nome }}</p>
+<h1>{{ item.nome }}</h1>
+
+<div class="item-layout">
+  <div class="item-principal">
+    <section class="cartao">
+      <h2>Campos</h2>
+      <table class="tabela-quadro tabela-campos">
+        <tbody>
+          {% for coluna in colunas %}
+          <tr><th scope="row">{{ coluna.nome }}</th>{% include "quadros/_celula.html" %}</tr>
+          {% empty %}
+          <tr><td class="sutil">Este quadro não tem colunas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="cartao" id="subtarefas">
+      <h2>Subtarefas{% if subtarefas %} <span class="sutil">({{ subtarefas|length }})</span>{% endif %}</h2>
+      <ul class="subtarefas">
+        {% for s in subtarefas %}
+        <li class="{% if s.feita %}feita{% endif %}">
+          <form method="post" action="{% url 'quadros:subtarefa_alternar' s.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="caixa" aria-label="{% if s.feita %}Reabrir{% else %}Concluir{% endif %} {{ s.nome }}">{% if s.feita %}✓{% endif %}</button>
+          </form>
+          <span class="nome-subtarefa">{{ s.nome }}</span>
+          <form method="post" action="{% url 'quadros:subtarefa_excluir' s.pk %}">
+            {% csrf_token %}<button type="submit" class="excluir" aria-label="Excluir subtarefa {{ s.nome }}">×</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{% url 'quadros:subtarefa_criar' item.pk %}" class="form-linha">
+        {% csrf_token %}
+        <input name="nome" placeholder="Nova subtarefa" required maxlength="255">
+        <button type="submit">Adicionar</button>
+      </form>
+    </section>
+
+    <section class="cartao" id="comentarios">
+      <h2>Comentários</h2>
+      {% for c in comentarios %}
+      <article class="comentario">
+        <header>
+          <strong>{{ c.autor.get_full_name|default:c.autor.username|default:"Usuário removido" }}</strong>
+          <span class="sutil">{{ c.criado_em|date:"d/m/Y H:i" }}</span>
+          {% if c.autor_id == user.pk %}
+          <form method="post" action="{% url 'quadros:comentario_excluir' c.pk %}" onsubmit="return confirm('Excluir este comentário?')">
+            {% csrf_token %}<button type="submit" class="excluir" aria-label="Excluir comentário">×</button>
+          </form>
+          {% endif %}
+        </header>
+        <p>{{ c.texto|linebreaksbr }}</p>
+      </article>
+      {% empty %}
+      <p class="sutil">Nenhum comentário ainda.</p>
+      {% endfor %}
+      <form method="post" action="{% url 'quadros:comentario_criar' item.pk %}" class="form-comentario">
+        {% csrf_token %}
+        <textarea name="texto" rows="3" placeholder="Escreva um comentário. Use @usuario para avisar alguém." required></textarea>
+        <p class="sutil dica">Pode mencionar: {% for u in usuarios_mencao %}@{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+        <button type="submit" class="primario">Comentar</button>
+      </form>
+    </section>
+  </div>
+
+  <aside class="item-lateral">
+    <section class="cartao" id="anexos">
+      <h2>Anexos</h2>
+      <ul class="anexos">
+        {% for a in anexos %}
+        <li>
+          <a href="{% url 'quadros:anexo_baixar' a.pk %}">{{ a.nome }}</a>
+          <span class="sutil">{{ a.tamanho|filesizeformat }} · {{ a.enviado_por.username|default:"" }} · {{ a.enviado_em|date:"d/m/Y" }}</span>
+          {% if a.enviado_por_id == user.pk or pode_gerenciar %}
+          <form method="post" action="{% url 'quadros:anexo_excluir' a.pk %}" onsubmit="return confirm('Excluir este anexo?')">
+            {% csrf_token %}<button type="submit" class="excluir" aria-label="Excluir anexo {{ a.nome }}">×</button>
+          </form>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="sutil">Nenhum anexo.</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{% url 'quadros:anexo_enviar' item.pk %}" enctype="multipart/form-data" class="form-anexo">
+        {% csrf_token %}
+        <input type="file" name="arquivo" required>
+        <button type="submit">Enviar</button>
+        <p class="sutil dica">Até {{ tamanho_maximo_mb }} MB por arquivo.</p>
+      </form>
+    </section>
+
+    <section class="cartao" id="historico">
+      <h2>Histórico</h2>
+      <ul class="historico">
+        {% for a in atividades %}
+        <li><strong>{{ a.usuario.get_full_name|default:a.usuario.username|default:"Sistema" }}</strong> {{ a.descricao }} <span class="sutil">· {{ a.criada_em|date:"d/m/Y H:i" }}</span></li>
+        {% empty %}
+        <li class="sutil">Nada registrado ainda.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </aside>
+</div>
+{% endblock %}
