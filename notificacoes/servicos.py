@@ -21,7 +21,9 @@ def notificar(usuario, texto, link="", autor=None, email=True):
         if link:
             corpo += f"\n\n{settings.SITE_URL.rstrip('/')}{link}"
         try:
-            send_mail(f"[Gestão do Grupo] {texto[:80]}", corpo, None, [usuario.email])
+            # Quebra de linha no assunto faz o Django recusar o e-mail.
+            assunto = " ".join(texto[:80].split())
+            send_mail(f"[Gestão do Grupo] {assunto}", corpo, None, [usuario.email])
         except Exception:
             # Falha de e-mail não pode impedir o trabalho no sistema.
             logger.exception("Falha ao enviar e-mail para %s", usuario.email)

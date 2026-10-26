@@ -37,9 +37,46 @@ Sistema de gestão de tarefas e projetos para o grupo (empresas, filiais e equip
 
 Sem `EMAIL_HOST` no `.env`, os e-mails aparecem no terminal em vez de serem enviados.
 
+## Módulo 5: gestão
+
+- **Automações** por quadro (botão Automações): quando uma coluna de Status mudar para uma etiqueta, avisar uma pessoa, avisar os responsáveis ou mover o item para outro grupo. Dá para pausar e excluir
+- **Painel gerencial** (menu Painel, só gestores): itens em aberto, concluídos, atrasados e que vencem em 7 dias, com quebra por filial, por responsável e a lista dos atrasados. Filtro por empresa e filial
+- **Importar do Monday** (na lista de quadros): envie o Excel exportado do Monday (ou um CSV). Cada grupo vira um grupo, e o tipo de cada coluna (Status, Pessoa, Data, Número, Texto) é adivinhado pelos valores. Pessoas são reconhecidas pelo nome completo ou usuário
+
 Os valores de cada item ficam em `Item.valores`, um JSON com o id da coluna como chave. A validação de cada tipo está em `Coluna.limpar_valor()` (`quadros/models.py`).
 
 A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`). Toda tela nova deve filtrar os dados por ela.
+
+## Usuários
+
+Menu **Usuários**, só para o administrador do grupo (TI): lista com busca, cadastro com senha inicial, edição, bloqueio (desmarcar Ativo) e nova senha. Ninguém edita a si mesmo por essa tela.
+
+- O e-mail é obrigatório, único e também serve para entrar no sistema
+- Só são aceitos e-mails @gencau.com, @balaiolab.com e @titan.ind.br (mude em `DOMINIOS_EMAIL` no `.env`)
+
+## Convidados (tarefas entre filiais e empresas)
+
+- No quadro, o gestor da filial clica em **Convidados** e escolhe qualquer pessoa ativa do grupo, de outra filial ou empresa.
+- O convidado recebe um aviso (no sistema e por e-mail), vê o quadro inteiro e pode receber tarefas, comentar, anexar e mudar status.
+- Ele não mexe na estrutura: grupos, colunas, automações, convidados, editar, duplicar ou arquivar continuam com os gestores da filial dona do quadro.
+- Na lista de quadros, o quadro aparece com a marca “convidado”. O painel gerencial só conta os quadros da própria área.
+- Remover o convidado tira o acesso na hora.
+
+## Segurança
+
+- Depois de 5 senhas erradas seguidas, o usuário fica bloqueado por 15 minutos
+- A sessão expira após 12 horas sem uso
+- A tela **Cadastros** é só do administrador do grupo; gestores não entram nela
+- Colaborador só exclui itens que ele mesmo criou; gestores excluem qualquer um
+- Envios acima de 11 MB são recusados na entrada; o importador limita linhas, colunas e o tamanho descompactado do Excel
+- Sem `DEBUG=1`, o sistema exige uma `SECRET_KEY` de 50+ caracteres, força HTTPS (com HSTS) e usa cookies seguros
+- `dados_exemplo` (senhas fracas) só roda com `DEBUG=1`
+
+## Antes de publicar
+
+- Anexos ficam na pasta `MEDIA_ROOT`. Em hospedagem com disco temporário (como o Render), aponte `MEDIA_ROOT` para um disco persistente, senão os anexos somem a cada atualização.
+- Defina `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`, `SITE_URL` e o e-mail (`EMAIL_HOST` e afins) no ambiente.
+- Agende `python manage.py avisar_prazos` uma vez por dia.
 
 ## Rodar no seu computador (Windows)
 

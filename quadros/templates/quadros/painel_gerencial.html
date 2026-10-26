@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load quadros_extras %}
+{% block titulo %}Painel gerencial · Gestão do Grupo{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Painel gerencial</h1>
+    <p class="sutil">Situação dos itens em {{ hoje|date:"d/m/Y" }}. Concluído = status Feito, Concluído, Pronto ou Entregue.</p>
+  </div>
+  <form method="get" class="filtros">
+    {% if empresas|length > 1 %}
+    <select name="empresa" onchange="this.form.submit()" aria-label="Empresa">
+      <option value="">Todas as empresas</option>
+      {% for e in empresas %}<option value="{{ e.pk }}"{% if e.pk == empresa_id %} selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    {% if filiais|length > 1 %}
+    <select name="filial" onchange="this.form.submit()" aria-label="Filial">
+      <option value="">Todas as filiais</option>
+      {% for f in filiais %}<option value="{{ f.pk }}"{% if f.pk == filial_id %} selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <noscript><button type="submit">Filtrar</button></noscript>
+  </form>
+</div>
+
+<div class="indicadores">
+  <div class="indicador"><span class="rotulo">Itens</span><span class="numero">{{ totais.itens }}</span></div>
+  <div class="indicador"><span class="rotulo">Em aberto</span><span class="numero">{{ totais.abertos }}</span></div>
+  <div class="indicador"><span class="rotulo">Concluídos</span><span class="numero texto-verde">{{ totais.concluidos }}</span></div>
+  <div class="indicador"><span class="rotulo">Atrasados</span><span class="numero texto-vermelho">{{ totais.atrasados }}</span></div>
+  <div class="indicador"><span class="rotulo">Vencem em 7 dias</span><span class="numero texto-laranja">{{ totais.semana }}</span></div>
+</div>
+
+<section class="cartao">
+  <h2>Por filial</h2>
+  <div class="tabela-rolagem sem-borda">
+  <table class="tabela-simples">
+    <thead><tr><th>Filial</th><th>Quadros</th><th>Em aberto</th><th>Atrasados</th><th>Concluídos</th><th>% concluído</th></tr></thead>
+    <tbody>
+      {% for f in por_filial %}
+      <tr>
+        <td>{{ f.filial }}</td><td>{{ f.quadros }}</td><td>{{ f.abertos }}</td>
+        <td>{% if f.atrasados %}<strong class="texto-vermelho">{{ f.atrasados }}</strong>{% else %}0{% endif %}</td>
+        <td>{{ f.concluidos }}</td>
+        <td><div class="barra" role="img" aria-label="{{ f.percentual }}% concluído"><span style="width: {{ f.percentual }}%"></span></div> {{ f.percentual }}%</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="sutil">Nenhum quadro neste filtro.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="duas-colunas">
+  <section class="cartao">
+    <h2>Por responsável</h2>
+    <table class="tabela-simples">
+      <thead><tr><th>Pessoa</th><th>Em aberto</th><th>Atrasados</th></tr></thead>
+      <tbody>
+        {% for p in pessoas %}
+        <tr><td>{{ p.nome }}</td><td>{{ p.abertos }}</td><td>{% if p.atrasados %}<strong class="texto-vermelho">{{ p.atrasados }}</strong>{% else %}0{% endif %}</td></tr>
+        {% empty %}
+        <tr><td colspan="3" class="sutil">Nenhum item em aberto com responsável.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="cartao">
+    <h2>Atrasados</h2>
+    <table class="tabela-simples">
+      <thead><tr><th>Item</th><th>Prazo</th><th>Responsável</th></tr></thead>
+      <tbody>
+        {% for a in atrasados %}
+        <tr>
+          <td><a href="{% url 'quadros:item_detalhe' a.item.pk %}">{{ a.item.nome }}</a><br><span class="sutil">{{ a.quadro.nome }} · {{ a.quadro.filial.nome }}</span></td>
+          <td>{{ a.prazo|date:"d/m/Y" }}</td>
+          <td>{{ a.responsaveis|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="sutil">Nada atrasado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

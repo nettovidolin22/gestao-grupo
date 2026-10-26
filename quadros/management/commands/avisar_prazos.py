@@ -3,11 +3,8 @@ from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 
 from notificacoes.servicos import notificar
-from quadros.colaboracao import link_item, responsaveis
+from quadros.colaboracao import STATUS_CONCLUIDO, link_item, responsaveis
 from quadros.models import Coluna, Item
-
-# Etiquetas de status que significam "terminado": não avisa prazo desses itens.
-STATUS_CONCLUIDO = {"feito", "concluído", "concluido", "pronto", "entregue"}
 
 
 class Command(BaseCommand):

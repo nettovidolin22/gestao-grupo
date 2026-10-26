@@ -6,9 +6,12 @@ from django.urls import reverse
 
 from notificacoes.servicos import notificar
 
-from .models import Atividade, Coluna
+from .models import Atividade, Automacao, Coluna
 
 MENCAO = re.compile(r"@([\w.@+-]+)")
+
+# Etiquetas de status que significam "terminado" (sem prazo a cobrar).
+STATUS_CONCLUIDO = {"feito", "concluído", "concluido", "pronto", "entregue", "done"}
 
 
 def link_item(item):
@@ -55,6 +58,8 @@ def ao_mudar_valor(item, coluna, anterior, usuario):
         f"mudou {coluna.nome} de {valor_legivel(coluna, anterior, quadro)} "
         f"para {valor_legivel(coluna, novo, quadro)}",
     )
+    if coluna.tipo == Coluna.Tipo.STATUS and novo:
+        rodar_automacoes(item, coluna, novo, usuario)
     if coluna.tipo == Coluna.Tipo.PESSOA and novo:
         pessoa = quadro.pessoas().filter(pk=novo).first()
         notificar(
@@ -86,3 +91,24 @@ def ao_comentar(comentario):
                 link_item(item),
                 autor=autor,
             )
+
+
+def rodar_automacoes(item, coluna, valor, usuario):
+    regras = Automacao.objects.filter(coluna=coluna, valor=valor, ativa=True).select_related(
+        "pessoa", "grupo"
+    )
+    quadro = item.grupo.quadro
+    texto = f"“{item.nome}” ({quadro.nome}) mudou {coluna.nome} para {valor}"
+    for regra in regras:
+        if regra.acao == Automacao.Acao.AVISAR_PESSOA:
+            # A pessoa pode ter saído da filial depois que a regra foi criada.
+            if not quadro.pessoas().filter(pk=regra.pessoa_id).exists():
+                continue
+            notificar(regra.pessoa, texto, link_item(item), autor=usuario)
+        elif regra.acao == Automacao.Acao.AVISAR_RESPONSAVEIS:
+            for pessoa in responsaveis(item):
+                notificar(pessoa, texto, link_item(item), autor=usuario)
+        elif regra.acao == Automacao.Acao.MOVER_GRUPO and regra.grupo_id != item.grupo_id:
+            item.grupo = regra.grupo
+            item.save(update_fields=["grupo"])
+            registrar(item, None, f"automação moveu para o grupo {regra.grupo.nome}")

@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import CORES, Coluna, Grupo, Quadro
+from .models import CORES, Automacao, Coluna, Grupo, Quadro
 
 
 class QuadroForm(forms.ModelForm):
@@ -68,3 +68,46 @@ class ColunaForm(forms.ModelForm):
             raise ValidationError("Uma coluna de Status precisa de pelo menos uma etiqueta.")
         self.instance.opcoes = opcoes if dados.get("tipo") == Coluna.Tipo.STATUS else []
         return dados
+
+
+class AutomacaoForm(forms.ModelForm):
+    class Meta:
+        model = Automacao
+        fields = ["coluna", "valor", "acao", "pessoa", "grupo", "ativa"]
+        labels = {"coluna": "Quando a coluna", "acao": "Ação", "pessoa": "Pessoa a avisar", "grupo": "Grupo de destino"}
+        help_texts = {
+            "valor": "Escreva a etiqueta exatamente como aparece na coluna (ex.: Feito).",
+            "pessoa": "Só para a ação “Avisar uma pessoa”.",
+            "grupo": "Só para a ação “Mover o item para um grupo”.",
+        }
+
+    def __init__(self, *args, quadro, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.quadro = quadro
+        self.fields["coluna"].queryset = quadro.colunas.filter(tipo=Coluna.Tipo.STATUS)
+        self.fields["pessoa"].queryset = quadro.pessoas()
+        self.fields["grupo"].queryset = quadro.grupos.all()
+
+    def clean(self):
+        dados = super().clean()
+        coluna, valor, acao = dados.get("coluna"), dados.get("valor"), dados.get("acao")
+        if coluna and valor and valor not in [o["nome"] for o in coluna.opcoes]:
+            opcoes = ", ".join(o["nome"] for o in coluna.opcoes)
+            self.add_error("valor", f"Etiqueta inexistente em {coluna.nome}. Use uma destas: {opcoes}.")
+        if acao == Automacao.Acao.AVISAR_PESSOA and not dados.get("pessoa"):
+            self.add_error("pessoa", "Escolha quem avisar.")
+        if acao == Automacao.Acao.MOVER_GRUPO and not dados.get("grupo"):
+            self.add_error("grupo", "Escolha o grupo de destino.")
+        self.instance.quadro = self.quadro
+        return dados
+
+
+class ImportarForm(forms.Form):
+    arquivo = forms.FileField(help_text="Arquivo .xlsx exportado do Monday, ou .csv.")
+    nome = forms.CharField(label="Nome do novo quadro", max_length=120, required=False,
+                           help_text="Deixe vazio para usar o nome que vem no arquivo.")
+    filial = forms.ModelChoiceField(queryset=None)
+
+    def __init__(self, *args, usuario, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["filial"].queryset = usuario.filiais_visiveis().select_related("empresa")

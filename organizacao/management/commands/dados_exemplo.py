@@ -1,4 +1,5 @@
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 
 from organizacao.models import Empresa, Filial, Usuario
 from quadros.models import Quadro
@@ -9,7 +10,17 @@ SENHA = "teste12345"
 class Command(BaseCommand):
     help = "Cria empresas, filiais e usuários de exemplo para testar o sistema."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--forcar", action="store_true",
+            help="Roda mesmo fora do modo de testes (DEBUG desligado). Cuidado: cria senhas fracas.",
+        )
+
     def handle(self, *args, **options):
+        if not settings.DEBUG and not options["forcar"]:
+            raise CommandError(
+                "Este comando cria usuários com senha fraca e só roda com DEBUG=1 (computador local)."
+            )
         alfa, _ = Empresa.objects.get_or_create(nome="Empresa Alfa")
         beta, _ = Empresa.objects.get_or_create(nome="Empresa Beta")
         gama, _ = Empresa.objects.get_or_create(nome="Empresa Gama")
