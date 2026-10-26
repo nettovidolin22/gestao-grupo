@@ -171,3 +171,4 @@ button.caixa { width: 22px; height: 22px; padding: 0; border-radius: 4px; line-h
 .busca input { flex: 1; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 6px; font: inherit; }
 tr.inativo td { color: var(--sutil); }
 .acoes-linha { white-space: nowrap; }
+.etiqueta.convite { background: #e8eefc; color: var(--primaria); font-size: 12px; }

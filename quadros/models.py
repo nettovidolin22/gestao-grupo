@@ -23,8 +23,16 @@ PRIORIDADE_PADRAO = [
 
 
 class QuadroQuerySet(models.QuerySet):
-    def visiveis_para(self, usuario):
+    def da_area_de(self, usuario):
+        """Quadros das filiais do usuário (sem os que ele só foi convidado)."""
         return self.filter(filial__in=usuario.filiais_visiveis(), arquivado=False)
+
+    def visiveis_para(self, usuario):
+        """Quadros das filiais do usuário mais os quadros para os quais foi convidado."""
+        return self.filter(
+            models.Q(filial__in=usuario.filiais_visiveis()) | models.Q(convidados=usuario),
+            arquivado=False,
+        ).distinct()
 
 
 class Quadro(models.Model):
@@ -36,6 +44,12 @@ class Quadro(models.Model):
     )
     criado_em = models.DateTimeField(auto_now_add=True)
     arquivado = models.BooleanField(default=False)
+    convidados = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="quadros_convidado",
+        help_text="Pessoas de outras filiais ou empresas que participam deste quadro.",
+    )
 
     objects = QuadroQuerySet.as_manager()
 
@@ -50,11 +64,14 @@ class Quadro(models.Model):
         from organizacao.models import Usuario
 
         P = Usuario.Papel
-        return Usuario.objects.filter(is_active=True).filter(
+        filtro = (
             models.Q(papel=P.ADMIN_GRUPO)
             | models.Q(papel=P.GESTOR_EMPRESA, empresa_id=self.filial.empresa_id)
             | models.Q(filial=self.filial)
-        ).order_by("first_name", "username")
+        )
+        if self.pk:
+            filtro |= models.Q(pk__in=self.convidados.values("pk"))
+        return Usuario.objects.filter(is_active=True).filter(filtro).order_by("first_name", "username")
 
     @classmethod
     def criar_padrao(cls, **campos):

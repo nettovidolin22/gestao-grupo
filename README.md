@@ -54,6 +54,14 @@ Menu **Usuários**, só para o administrador do grupo (TI): lista com busca, cad
 - O e-mail é obrigatório, único e também serve para entrar no sistema
 - Só são aceitos e-mails @gencau.com, @balaiolab.com e @titan.ind.br (mude em `DOMINIOS_EMAIL` no `.env`)
 
+## Convidados (tarefas entre filiais e empresas)
+
+- No quadro, o gestor da filial clica em **Convidados** e escolhe qualquer pessoa ativa do grupo, de outra filial ou empresa.
+- O convidado recebe um aviso (no sistema e por e-mail), vê o quadro inteiro e pode receber tarefas, comentar, anexar e mudar status.
+- Ele não mexe na estrutura: grupos, colunas, automações, convidados, editar, duplicar ou arquivar continuam com os gestores da filial dona do quadro.
+- Na lista de quadros, o quadro aparece com a marca “convidado”. O painel gerencial só conta os quadros da própria área.
+- Remover o convidado tira o acesso na hora.
+
 ## Segurança
 
 - Depois de 5 senhas erradas seguidas, o usuário fica bloqueado por 15 minutos
