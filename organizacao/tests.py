@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Empresa, Filial, Usuario
@@ -78,56 +78,60 @@ class CadastroUsuariosTests(TestCase):
         base.update(extra)
         return base
 
-    def test_colaborador_nao_acessa(self):
-        self.client.force_login(self.colab)
-        self.assertEqual(self.client.get(reverse("usuarios")).status_code, 403)
+    def test_so_administrador_acessa(self):
+        for quem in (self.colab, self.gfilial, self.gestor):
+            self.client.force_login(quem)
+            self.assertEqual(self.client.get(reverse("usuarios")).status_code, 403)
+            self.assertEqual(self.client.post(reverse("usuario_novo"), self.dados()).status_code, 403)
+        self.assertFalse(Usuario.objects.filter(username="ana").exists())
 
-    def test_gestor_ve_so_usuarios_da_empresa(self):
-        self.client.force_login(self.gestor)
-        resposta = self.client.get(reverse("usuarios"))
-        self.assertContains(resposta, "colab")
-        self.assertNotContains(resposta, "outro")
-        self.assertEqual(self.client.get(reverse("usuario_editar", args=[self.outro.pk])).status_code, 404)
-
-    def test_gestor_cadastra_colaborador_que_consegue_entrar(self):
-        self.client.force_login(self.gestor)
+    def test_administrador_cadastra_usuario_que_consegue_entrar(self):
+        self.client.force_login(self.admin)
         resposta = self.client.post(reverse("usuario_novo"), self.dados())
         self.assertRedirects(resposta, reverse("usuarios"))
         ana = Usuario.objects.get(username="ana")
         self.assertEqual(ana.filial, self.matriz)
+        self.client.logout()
         self.assertTrue(self.client.login(username="ana", password="Senha-forte-2026"))
 
-    def test_gestor_nao_cria_administrador_nem_usuario_em_outra_empresa(self):
-        self.client.force_login(self.gestor)
-        self.client.post(reverse("usuario_novo"), self.dados(papel="admin_grupo"))
-        self.client.post(reverse("usuario_novo"), self.dados(username="bia", empresa=self.beta.pk, filial=self.fb.pk))
-        self.assertFalse(Usuario.objects.filter(username__in=["ana", "bia"], papel="admin_grupo").exists())
-        self.assertFalse(Usuario.objects.filter(username="bia", empresa=self.beta).exists())
+    def test_entra_com_email_corporativo(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("usuario_novo"), self.dados())
+        self.client.logout()
+        resposta = self.client.post(reverse("login"), {"username": "ANA@x.com", "password": "Senha-forte-2026"})
+        self.assertEqual(resposta.status_code, 302)
 
-    def test_gestor_de_filial_cadastra_so_na_propria_filial(self):
-        self.client.force_login(self.gfilial)
-        self.client.post(reverse("usuario_novo"), self.dados(filial=self.f2.pk))
-        ana = Usuario.objects.get(username="ana")
-        self.assertEqual(ana.filial, self.matriz)
-        self.assertEqual(ana.papel, "colaborador")
+    def test_email_repetido_recusado(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("usuario_novo"), self.dados())
+        self.client.post(reverse("usuario_novo"), self.dados(username="ana2"))
+        self.assertFalse(Usuario.objects.filter(username="ana2").exists())
+
+    @override_settings(DOMINIOS_EMAIL=["gencau.com.br"])
+    def test_so_aceita_dominio_corporativo(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("usuario_novo"), self.dados(email="ana@gmail.com"))
+        self.assertFalse(Usuario.objects.filter(username="ana").exists())
+        self.client.post(reverse("usuario_novo"), self.dados(email="ana@gencau.com.br"))
+        self.assertTrue(Usuario.objects.filter(username="ana").exists())
 
     def test_senha_fraca_recusada(self):
-        self.client.force_login(self.gestor)
+        self.client.force_login(self.admin)
         resposta = self.client.post(reverse("usuario_novo"), self.dados(senha1="123", senha2="123"))
         self.assertEqual(resposta.status_code, 200)
         self.assertFalse(Usuario.objects.filter(username="ana").exists())
 
     def test_desativar_bloqueia_login(self):
-        self.client.force_login(self.gestor)
+        self.client.force_login(self.admin)
         self.client.post(reverse("usuario_editar", args=[self.colab.pk]), {
-            "first_name": "", "username": "colab", "email": "", "papel": "colaborador",
+            "first_name": "", "username": "colab", "email": "colab@x.com", "papel": "colaborador",
             "empresa": self.alfa.pk, "filial": self.matriz.pk,
         })
         self.colab.refresh_from_db()
         self.assertFalse(self.colab.is_active)
 
     def test_redefinir_senha(self):
-        self.client.force_login(self.gestor)
+        self.client.force_login(self.admin)
         self.client.post(reverse("usuario_senha", args=[self.colab.pk]),
                          {"new_password1": "Outra-senha-77", "new_password2": "Outra-senha-77"})
         self.client.logout()

@@ -7,7 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import TentativaLogin, Usuario
+from .models import Filial, TentativaLogin, Usuario
 
 
 def ip_da_requisicao(request):
@@ -30,6 +30,12 @@ class LoginForm(AuthenticationForm):
     }
 
     def clean(self):
+        # Aceita o usuário ou o e-mail corporativo; as tentativas contam sempre pelo usuário.
+        digitado = (self.cleaned_data.get("username") or "").strip()
+        if "@" in digitado:
+            dono = Usuario.objects.filter(email__iexact=digitado).first()
+            if dono:
+                self.cleaned_data["username"] = dono.username
         username = (self.cleaned_data.get("username") or "").strip().lower()
         if username:
             desde = timezone.now() - timedelta(seconds=settings.LOGIN_BLOQUEIO_SEGUNDOS)
@@ -53,7 +59,7 @@ class LoginForm(AuthenticationForm):
 
 
 class UsuarioForm(forms.ModelForm):
-    """Cadastro de usuário pela tela Usuários, limitado ao que o gestor pode conceder."""
+    """Cadastro de usuário pela tela Usuários (só o administrador do grupo usa)."""
 
     senha1 = forms.CharField(label="Senha inicial", widget=forms.PasswordInput, required=False,
                              help_text="Peça para a pessoa trocar no primeiro acesso.")
@@ -70,19 +76,11 @@ class UsuarioForm(forms.ModelForm):
     def __init__(self, *args, gestor, **kwargs):
         super().__init__(*args, **kwargs)
         self.gestor = gestor
-        papeis = gestor.papeis_que_pode_cadastrar()
-        self.fields["papel"].choices = [(p.value, p.label) for p in papeis]
-        self.fields["empresa"].queryset = gestor.empresas_visiveis()
-        self.fields["filial"].queryset = gestor.filiais_visiveis().select_related("empresa")
+        self.fields["filial"].queryset = Filial.objects.select_related("empresa")
+        self.fields["email"].required = True
+        self.fields["email"].help_text = "E-mail corporativo. Também serve para entrar no sistema."
         self.fields["empresa"].required = False
         self.fields["filial"].required = False
-        # Gestores só cadastram na própria empresa (e o de filial, na própria filial).
-        if not gestor.ve_grupo_todo:
-            del self.fields["empresa"]
-            self.instance.empresa = gestor.empresa
-        if not gestor.ve_grupo_todo and gestor.papel == Usuario.Papel.GESTOR_FILIAL:
-            del self.fields["filial"]
-            self.instance.filial = gestor.filial
         if self.instance.pk:
             del self.fields["senha1"], self.fields["senha2"]
         else:
@@ -96,6 +94,15 @@ class UsuarioForm(forms.ModelForm):
         if repetido.exists():
             raise ValidationError("Já existe um usuário com esse nome.")
         return username
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        dominios = settings.DOMINIOS_EMAIL
+        if dominios and email.rsplit("@", 1)[-1] not in dominios:
+            raise ValidationError("Use o e-mail corporativo (" + ", ".join("@" + d for d in dominios) + ").")
+        if Usuario.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("Esse e-mail já está em outro usuário.")
+        return email
 
     def clean(self):
         dados = super().clean()

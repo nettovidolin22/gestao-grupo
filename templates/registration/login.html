@@ -3,11 +3,11 @@
 {% block conteudo %}
 <div class="cartao cartao-login">
   <h1>Gestão do Grupo</h1>
-  <p class="sutil">Entre com seu usuário e senha.</p>
+  <p class="sutil">Entre com seu usuário ou e-mail corporativo e a senha.</p>
   {% for erro in form.non_field_errors %}<p class="erro">{{ erro }}</p>{% endfor %}
   <form method="post">
     {% csrf_token %}
-    <label>Usuário <input type="text" name="username" autofocus required></label>
+    <label>Usuário ou e-mail <input type="text" name="username" autofocus required></label>
     <label>Senha <input type="password" name="password" required></label>
     <input type="hidden" name="next" value="{{ next }}">
     <button type="submit" class="primario">Entrar</button>

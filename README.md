@@ -49,15 +49,10 @@ A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`)
 
 ## Usuários
 
-Menu **Usuários** (gestores e administrador): lista com busca, cadastro, edição, bloqueio (desmarcar Ativo) e nova senha.
+Menu **Usuários**, só para o administrador do grupo (TI): lista com busca, cadastro com senha inicial, edição, bloqueio (desmarcar Ativo) e nova senha. Ninguém edita a si mesmo por essa tela.
 
-| Quem cadastra | Pode criar | Onde |
-| --- | --- | --- |
-| Administrador do grupo | Qualquer perfil | Qualquer empresa e filial |
-| Gestor de empresa | Gestor de filial e colaborador | Filiais da própria empresa |
-| Gestor de filial | Colaborador | A própria filial |
-
-Ninguém edita a si mesmo nem alguém de perfil igual ou maior por essa tela. A regra fica em `Usuario.usuarios_gerenciaveis()`.
+- O e-mail é obrigatório, único e também serve para entrar no sistema
+- `DOMINIOS_EMAIL` no `.env` limita o cadastro aos domínios corporativos (ex.: `gencau.com.br,balaio.com.br`)
 
 ## Segurança
 

@@ -77,32 +77,17 @@ class Usuario(AbstractUser):
 
     @property
     def gerencia_usuarios(self):
-        return self.ve_grupo_todo or self.papel in (self.Papel.GESTOR_EMPRESA, self.Papel.GESTOR_FILIAL)
-
-    def papeis_que_pode_cadastrar(self):
-        """Ninguém cadastra alguém com mais poder do que ele mesmo."""
-        P = self.Papel
-        if self.ve_grupo_todo:
-            return list(P)
-        if self.papel == P.GESTOR_EMPRESA:
-            return [P.GESTOR_FILIAL, P.COLABORADOR]
-        if self.papel == P.GESTOR_FILIAL:
-            return [P.COLABORADOR]
-        return []
+        """Só o administrador do grupo (TI) cadastra logins e senhas."""
+        return self.ve_grupo_todo
 
     def usuarios_gerenciaveis(self):
         """Usuários que esta pessoa pode ver e editar na tela Usuários (nunca ela mesma)."""
+        if not self.gerencia_usuarios:
+            return Usuario.objects.none()
         qs = Usuario.objects.exclude(pk=self.pk)
         if not self.is_superuser:
             qs = qs.exclude(is_superuser=True)
-        if self.ve_grupo_todo:
-            return qs
-        papeis = self.papeis_que_pode_cadastrar()
-        if self.papel == self.Papel.GESTOR_EMPRESA:
-            return qs.filter(empresa_id=self.empresa_id, papel__in=papeis)
-        if self.papel == self.Papel.GESTOR_FILIAL:
-            return qs.filter(filial_id=self.filial_id, papel__in=papeis)
-        return qs.none()
+        return qs
 
     def empresas_visiveis(self):
         if self.ve_grupo_todo:
