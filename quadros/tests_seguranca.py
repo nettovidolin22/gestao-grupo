@@ -54,6 +54,8 @@ class SegurancaTests(TestCase):
         self.assertEqual(self.client.get("/admin/").status_code, 302)
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get("/admin/").status_code, 200)
+        # Administrador do grupo sem ser superusuário consegue cadastrar usuários.
+        self.assertEqual(self.client.get("/admin/organizacao/usuario/add/").status_code, 200)
 
     def test_colaborador_nao_exclui_item_de_outra_pessoa(self):
         item = self.grupo.itens.create(nome="Do gestor", criado_por=self.gestor)

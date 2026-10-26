@@ -64,6 +64,17 @@ class Usuario(AbstractUser):
     def ve_grupo_todo(self):
         return self.is_superuser or self.papel == self.Papel.ADMIN_GRUPO
 
+    def has_perm(self, perm, obj=None):
+        # O administrador do grupo (com acesso a Cadastros) gerencia tudo, como um superusuário.
+        if self.is_active and self.is_staff and self.papel == self.Papel.ADMIN_GRUPO:
+            return True
+        return super().has_perm(perm, obj)
+
+    def has_module_perms(self, app_label):
+        if self.is_active and self.is_staff and self.papel == self.Papel.ADMIN_GRUPO:
+            return True
+        return super().has_module_perms(app_label)
+
     def empresas_visiveis(self):
         if self.ve_grupo_todo:
             return Empresa.objects.all()
