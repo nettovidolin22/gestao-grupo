@@ -101,6 +101,9 @@ def rodar_automacoes(item, coluna, valor, usuario):
     texto = f"“{item.nome}” ({quadro.nome}) mudou {coluna.nome} para {valor}"
     for regra in regras:
         if regra.acao == Automacao.Acao.AVISAR_PESSOA:
+            # A pessoa pode ter saído da filial depois que a regra foi criada.
+            if not quadro.pessoas().filter(pk=regra.pessoa_id).exists():
+                continue
             notificar(regra.pessoa, texto, link_item(item), autor=usuario)
         elif regra.acao == Automacao.Acao.AVISAR_RESPONSAVEIS:
             for pessoa in responsaveis(item):
