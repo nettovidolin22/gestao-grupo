@@ -134,8 +134,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
-# Domínios de e-mail aceitos no cadastro (ex.: gencau.com.br,balaio.com.br). Vazio aceita qualquer um.
-DOMINIOS_EMAIL = [d.strip().lower() for d in os.environ.get("DOMINIOS_EMAIL", "").split(",") if d.strip()]
+# Domínios de e-mail aceitos no cadastro de usuários (os das empresas do grupo).
+DOMINIOS_EMAIL = [
+    d.strip().lower()
+    for d in os.environ.get("DOMINIOS_EMAIL", "gencau.com,balaiolab.com,titan.ind.br").split(",")
+    if d.strip()
+]
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "painel"

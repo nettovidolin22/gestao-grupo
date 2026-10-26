@@ -56,6 +56,7 @@ class AcessoTests(TestCase):
         self.assertNotContains(resposta, "Beta")
 
 
+@override_settings(DOMINIOS_EMAIL=[])
 class CadastroUsuariosTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -107,12 +108,12 @@ class CadastroUsuariosTests(TestCase):
         self.client.post(reverse("usuario_novo"), self.dados(username="ana2"))
         self.assertFalse(Usuario.objects.filter(username="ana2").exists())
 
-    @override_settings(DOMINIOS_EMAIL=["gencau.com.br"])
+    @override_settings(DOMINIOS_EMAIL=["gencau.com", "balaiolab.com", "titan.ind.br"])
     def test_so_aceita_dominio_corporativo(self):
         self.client.force_login(self.admin)
         self.client.post(reverse("usuario_novo"), self.dados(email="ana@gmail.com"))
         self.assertFalse(Usuario.objects.filter(username="ana").exists())
-        self.client.post(reverse("usuario_novo"), self.dados(email="ana@gencau.com.br"))
+        self.client.post(reverse("usuario_novo"), self.dados(email="ana@titan.ind.br"))
         self.assertTrue(Usuario.objects.filter(username="ana").exists())
 
     def test_senha_fraca_recusada(self):

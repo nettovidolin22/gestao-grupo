@@ -52,7 +52,7 @@ A regra de acesso fica em `Usuario.filiais_visiveis()` (`organizacao/models.py`)
 Menu **Usuários**, só para o administrador do grupo (TI): lista com busca, cadastro com senha inicial, edição, bloqueio (desmarcar Ativo) e nova senha. Ninguém edita a si mesmo por essa tela.
 
 - O e-mail é obrigatório, único e também serve para entrar no sistema
-- `DOMINIOS_EMAIL` no `.env` limita o cadastro aos domínios corporativos (ex.: `gencau.com.br,balaio.com.br`)
+- Só são aceitos e-mails @gencau.com, @balaiolab.com e @titan.ind.br (mude em `DOMINIOS_EMAIL` no `.env`)
 
 ## Segurança
 
